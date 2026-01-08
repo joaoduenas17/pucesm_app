@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 // Splash
@@ -10,14 +9,8 @@ import '../screens/calendar/calendar_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/edit_profile_screen.dart';
 
-
-// Entorno Virtual
+// Entorno Virtual (WebView / in-app browser)
 import '../screens/virtual/virtual_screen.dart';
-import '../screens/virtual/materias_screen.dart';
-import '../screens/virtual/tareas_screen.dart';
-import '../screens/virtual/calificaciones_screen.dart';
-import '../screens/virtual/mensajes_screen.dart';
-import '../screens/virtual/perfil_virtual_screen.dart';
 
 // Widgets
 import '../widgets/bottom_nav.dart';
@@ -38,9 +31,7 @@ class AppRouter {
       // App principal
       // ======================
       ShellRoute(
-        builder: (context, state, child) {
-          return BottomNav(child: child);
-        },
+        builder: (context, state, child) => BottomNav(child: child),
         routes: [
           // -------- Home --------
           GoRoute(
@@ -70,26 +61,6 @@ class AppRouter {
           GoRoute(
             path: '/virtual',
             builder: (context, state) => const VirtualScreen(),
-          ),
-          GoRoute(
-            path: '/virtual/materias',
-            builder: (context, state) => const MateriasScreen(),
-          ),
-          GoRoute(
-            path: '/virtual/tareas',
-            builder: (context, state) => const TareasScreen(),
-          ),
-          GoRoute(
-            path: '/virtual/calificaciones',
-            builder: (context, state) => const CalificacionesScreen(),
-          ),
-          GoRoute(
-            path: '/virtual/mensajes',
-            builder: (context, state) => const MensajesScreen(),
-          ),
-          GoRoute(
-            path: '/virtual/perfil',
-            builder: (context, state) => const PerfilVirtualScreen(),
           ),
         ],
       ),

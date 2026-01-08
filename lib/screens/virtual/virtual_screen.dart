@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import 'login_screen.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 class VirtualScreen extends StatefulWidget {
   const VirtualScreen({super.key});
@@ -12,156 +9,159 @@ class VirtualScreen extends StatefulWidget {
 }
 
 class _VirtualScreenState extends State<VirtualScreen> {
-  bool? _logged;
+  late final WebViewController _controller;
+
+  bool _isLoading = true;
+  bool _canGoBack = false;
+  bool _canGoForward = false;
+
+  // Mostramos algo corto y limpio en la barrita
+  String _hostLabel = 'eva.pucesm.edu.ec';
 
   @override
   void initState() {
     super.initState();
-    _loadSession();
+
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.transparent)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (url) async {
+            setState(() => _isLoading = true);
+            await _refreshNavState(url: url);
+          },
+          onPageFinished: (url) async {
+            setState(() => _isLoading = false);
+            await _refreshNavState(url: url);
+          },
+          onNavigationRequest: (request) {
+            // Si luego quieres bloquear dominios externos, aquí.
+            return NavigationDecision.navigate;
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse('https://eva.pucesm.edu.ec'));
   }
 
-  Future<void> _loadSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    final logged = prefs.getBool('logged') ?? false;
+  Future<void> _refreshNavState({String? url}) async {
+    final canBack = await _controller.canGoBack();
+    final canForward = await _controller.canGoForward();
 
-    if (!mounted) return;
-    setState(() => _logged = logged);
-  }
-
-  Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('logged', false);
-
-    if (!mounted) return;
-    setState(() => _logged = false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_logged == null) {
-      // OJO: Sin Scaffold para no duplicar el de BottomNav
-      return const Center(child: CircularProgressIndicator());
+    String host = _hostLabel;
+    if (url != null && url.isNotEmpty) {
+      final uri = Uri.tryParse(url);
+      if (uri != null && uri.host.isNotEmpty) host = uri.host;
+    } else {
+      final current = await _controller.currentUrl();
+      final uri = current != null ? Uri.tryParse(current) : null;
+      if (uri != null && uri.host.isNotEmpty) host = uri.host;
     }
 
-    if (_logged == false) {
-      // Login se renderiza dentro del shell (verás el AppBar del BottomNav)
-      return LoginScreen(onLoginSuccess: _loadSession);
-    }
-
-    // Dashboard sin Scaffold/AppBar (evita duplicado)
-    return _VirtualDashboardBody(onLogout: _logout);
+    if (!mounted) return;
+    setState(() {
+      _canGoBack = canBack;
+      _canGoForward = canForward;
+      _hostLabel = host;
+    });
   }
-}
-
-class _VirtualDashboardBody extends StatelessWidget {
-  final VoidCallback onLogout;
-  const _VirtualDashboardBody({required this.onLogout});
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Botón “cerrar sesión” como acción dentro del contenido (ya no en AppBar)
-        Align(
-          alignment: Alignment.centerRight,
-          child: IconButton(
-            tooltip: 'Cerrar sesión',
-            onPressed: onLogout,
-            icon: const Icon(Icons.logout),
-          ),
-        ),
+    final cs = Theme.of(context).colorScheme;
 
-        const SizedBox(height: 6),
-        const _EVAHeaderCard(),
-        const SizedBox(height: 16),
-
-        _EVASectionCard(
-          title: 'Materias',
-          subtitle: 'Accede a tus asignaturas y contenidos.',
-          icon: Icons.menu_book,
-          onTap: () => context.go('/virtual/materias'),
-        ),
-        const SizedBox(height: 12),
-
-        _EVASectionCard(
-          title: 'Tareas',
-          subtitle: 'Revisa y gestiona tus actividades.',
-          icon: Icons.assignment_turned_in,
-          onTap: () => context.go('/virtual/tareas'),
-        ),
-        const SizedBox(height: 12),
-
-        _EVASectionCard(
-          title: 'Calificaciones',
-          subtitle: 'Consulta tu rendimiento académico.',
-          icon: Icons.bar_chart,
-          onTap: () => context.go('/virtual/calificaciones'),
-        ),
-        const SizedBox(height: 12),
-
-        _EVASectionCard(
-          title: 'Mensajes',
-          subtitle: 'Comunicación con docentes.',
-          icon: Icons.chat_bubble_outline,
-          onTap: () => context.go('/virtual/mensajes'),
-        ),
-        const SizedBox(height: 12),
-
-        _EVASectionCard(
-          title: 'Perfil',
-          subtitle: 'Información personal y ajustes.',
-          icon: Icons.person_outline,
-          onTap: () => context.go('/virtual/perfil'),
-        ),
-      ],
-    );
-  }
-}
-
-class _EVAHeaderCard extends StatelessWidget {
-  const _EVAHeaderCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEAF6FD),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
+    // ✅ Sin Scaffold para no duplicar AppBar (BottomNav ya pone AppBar)
+    return SafeArea(
+      child: Column(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Image.asset(
-              'assets/images/logo_puce.png',
-              width: 52,
-              height: 52,
-              fit: BoxFit.contain,
+          // WebView
+          Expanded(
+            child: Stack(
+              children: [
+                WebViewWidget(controller: _controller),
+
+                // Loader arriba del WebView (opcional pero pro)
+                if (_isLoading)
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    child: LinearProgressIndicator(minHeight: 2),
+                  ),
+              ],
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+
+          // ✅ Barra blanca ABAJO (como pediste)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                top: BorderSide(color: Colors.black.withOpacity(0.08)),
+              ),
+            ),
+            child: Row(
               children: [
-                Text(
-                  'EVA PUCESM',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: primary,
-                  ),
+                IconButton(
+                  tooltip: 'Atrás',
+                  onPressed: _canGoBack
+                      ? () async {
+                          await _controller.goBack();
+                          await _refreshNavState();
+                        }
+                      : null,
+                  icon: const Icon(Icons.chevron_left),
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Accede a tus recursos académicos desde la app.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF5B6472),
+                IconButton(
+                  tooltip: 'Adelante',
+                  onPressed: _canGoForward
+                      ? () async {
+                          await _controller.goForward();
+                          await _refreshNavState();
+                        }
+                      : null,
+                  icon: const Icon(Icons.chevron_right),
+                ),
+                IconButton(
+                  tooltip: 'Recargar',
+                  onPressed: () async {
+                    await _controller.reload();
+                    await _refreshNavState();
+                  },
+                  icon: const Icon(Icons.refresh),
+                ),
+
+                const SizedBox(width: 8),
+
+                // “URL” / dominio en forma de pill
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.lock_outline, size: 16, color: cs.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _hostLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -172,79 +172,3 @@ class _EVAHeaderCard extends StatelessWidget {
     );
   }
 }
-
-class _EVASectionCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _EVASectionCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: const [
-            BoxShadow(
-              blurRadius: 16,
-              offset: Offset(0, 6),
-              color: Color(0x14000000),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEAF6FD),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: primary),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF5B6472),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right, color: primary),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
