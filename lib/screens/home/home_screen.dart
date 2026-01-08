@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../models/news_item.dart';
+import '../../services/pucem_api.dart';
+
 enum HomeSection { noticias, grado, posgrado }
 
 class HomeScreen extends StatefulWidget {
@@ -13,24 +16,18 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   HomeSection selected = HomeSection.noticias;
 
-  // Mock data (luego lo conectamos a backend / web)
-  final List<_NewsItem> news = const [
-    _NewsItem(
-      title: 'FIRMA DE CONVENIO CON HOTEL ORO VERDE PORTOVIEJO',
-      date: '2025-07-30 01:54',
-      imageUrl: 'https://picsum.photos/seed/puce1/900/500',
-    ),
-    _NewsItem(
-      title: 'RESULTADOS GENERALES FASE MÉRITO Y FASE OPOSICIÓN',
-      date: '2025-07-29 10:40',
-      imageUrl: 'https://picsum.photos/seed/puce2/900/500',
-    ),
-    _NewsItem(
-      title: 'PRIMERA FERIA DE EMPLEABILIDAD EN EL CAMPUS MANTA',
-      date: '2025-07-22 12:18',
-      imageUrl: 'https://picsum.photos/seed/puce3/900/500',
-    ),
-  ];
+  late Future<List<NewsItem>> _newsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _newsFuture = PucemApi.fetchNews();
+  }
+
+  Future<void> _refreshNews() async {
+    setState(() => _newsFuture = PucemApi.fetchNews());
+    await _newsFuture;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,10 +46,12 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 14),
 
           if (selected == HomeSection.noticias) ...[
-            ...news.map((n) => Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: _NewsCard(item: n),
-                )),
+            _NewsPreview(
+              future: _newsFuture,
+              onRefresh: _refreshNews,
+              onSeeAll: () => context.push('/news'),
+              onOpenDetail: (n) => context.push('/news/detail', extra: n),
+            ),
           ] else if (selected == HomeSection.grado) ...[
             const _InfoCard(
               title: 'Carreras de Grado',
@@ -62,8 +61,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 12),
             _QuickButtonsRow(
-              onCalendar: () => _go('/calendar'),
-              onLogin: () => _go('/virtual'),
+              onCalendar: () => context.go('/calendar'),
+              onLogin: () => context.go('/virtual'),
             ),
           ] else ...[
             const _InfoCard(
@@ -74,8 +73,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 12),
             _QuickButtonsRow(
-              onCalendar: () => _go('/calendar'),
-              onLogin: () => _go('/virtual'),
+              onCalendar: () => context.go('/calendar'),
+              onLogin: () => context.go('/virtual'),
             ),
           ],
 
@@ -84,8 +83,256 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
 
-  void _go(String path) => context.go(path);
+class _NewsPreview extends StatelessWidget {
+  final Future<List<NewsItem>> future;
+  final Future<void> Function() onRefresh;
+  final VoidCallback onSeeAll;
+  final void Function(NewsItem) onOpenDetail;
+
+  const _NewsPreview({
+    required this.future,
+    required this.onRefresh,
+    required this.onSeeAll,
+    required this.onOpenDetail,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Noticias',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              ),
+            ),
+            TextButton(
+              onPressed: onSeeAll,
+              child: const Text('Ver todas'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        FutureBuilder<List<NewsItem>>(
+          future: future,
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const _NewsLoading();
+            }
+            if (snap.hasError) {
+              return _NewsError(
+                message: snap.error.toString(),
+                onRetry: onRefresh,
+              );
+            }
+
+            final items = snap.data ?? const <NewsItem>[];
+            if (items.isEmpty) {
+              return const Text('No hay noticias por ahora.');
+            }
+
+            final preview = items.take(3).toList();
+
+            return Column(
+              children: [
+                ...preview.map(
+                  (n) => Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: _NewsCard(
+                      title: n.title,
+                      predescription: n.predescription,
+                      date: n.dateLabel,
+                      imageUrl: n.imageName.isNotEmpty
+                          ? PucemApi.imageUri(n.imageName).toString()
+                          : null,
+                      onTap: () => onOpenDetail(n),
+                      primary: primary,
+                    ),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: onSeeAll,
+                    icon: const Icon(Icons.article_outlined),
+                    label: const Text('Ver más noticias'),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _NewsCard extends StatelessWidget {
+  final String title;
+  final String predescription;
+  final String date;
+  final String? imageUrl;
+  final VoidCallback onTap;
+  final Color primary;
+
+  const _NewsCard({
+    required this.title,
+    required this.predescription,
+    required this.date,
+    required this.imageUrl,
+    required this.onTap,
+    required this.primary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [
+            BoxShadow(
+              blurRadius: 16,
+              offset: Offset(0, 6),
+              color: Color(0x14000000),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (imageUrl != null) ...[
+              Stack(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: Image.network(
+                      imageUrl!,
+                      fit: BoxFit.cover,
+                      // IMPORTANTE: algunos servers se ponen especiales con Referer/Origin.
+                      headers: PucemApi.defaultHeaders(),
+                      errorBuilder: (_, __, ___) =>
+                          const Center(child: Icon(Icons.image_not_supported)),
+                    ),
+                  ),
+                  if (date.isNotEmpty)
+                    Positioned(
+                      right: 10,
+                      bottom: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: primary,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          date,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    ),
+                  ),
+                  if (predescription.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      predescription,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.3,
+                        color: Color(0xFF5B6472),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NewsLoading extends StatelessWidget {
+  const _NewsLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _NewsError extends StatelessWidget {
+  final String message;
+  final Future<void> Function() onRetry;
+
+  const _NewsError({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'No se pudieron cargar las noticias.',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            message,
+            style: const TextStyle(color: Color(0xFF5B6472)),
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Reintentar'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _Header extends StatelessWidget {
@@ -145,7 +392,7 @@ class _PillTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final softBg = const Color(0xFFF1F4FA); // neutro (no compite con el primario)
+    final softBg = const Color(0xFFF1F4FA);
 
     return Container(
       padding: const EdgeInsets.all(6),
@@ -225,79 +472,6 @@ class _PillButton extends StatelessWidget {
   }
 }
 
-class _NewsCard extends StatelessWidget {
-  final _NewsItem item;
-  const _NewsCard({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(
-            blurRadius: 16,
-            spreadRadius: 0,
-            offset: Offset(0, 6),
-            color: Color(0x14000000),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            children: [
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Image.network(
-                  item.imageUrl,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              Positioned(
-                right: 10,
-                bottom: 10,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: primary,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    item.date,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-            child: Text(
-              item.title,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-                height: 1.2,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _InfoCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -352,10 +526,6 @@ class _InfoCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  // mantenemos el mismo estilo neutro para lectura
-                  '',
-                ),
                 Text(
                   subtitle,
                   style: const TextStyle(
@@ -401,16 +571,4 @@ class _QuickButtonsRow extends StatelessWidget {
       ],
     );
   }
-}
-
-class _NewsItem {
-  final String title;
-  final String date;
-  final String imageUrl;
-
-  const _NewsItem({
-    required this.title,
-    required this.date,
-    required this.imageUrl,
-  });
 }

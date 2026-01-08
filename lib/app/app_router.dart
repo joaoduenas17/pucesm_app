@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 // Splash
@@ -11,6 +12,11 @@ import '../screens/profile/edit_profile_screen.dart';
 
 // Entorno Virtual (WebView / in-app browser)
 import '../screens/virtual/virtual_screen.dart';
+
+// Noticias
+import '../screens/news/news_list_screen.dart';
+import '../screens/news/news_detail_screen.dart';
+import '../models/news_item.dart';
 
 // Widgets
 import '../widgets/bottom_nav.dart';
@@ -62,8 +68,49 @@ class AppRouter {
             path: '/virtual',
             builder: (context, state) => const VirtualScreen(),
           ),
+
+          // ======================
+          // Noticias
+          // ======================
+          GoRoute(
+            path: '/news',
+            builder: (context, state) => const NewsListScreen(),
+          ),
+          GoRoute(
+            path: '/news/detail',
+            builder: (context, state) {
+              final extra = state.extra;
+              if (extra is! NewsItem) {
+                return const _BadRouteScreen(
+                  message: 'Falta NewsItem en state.extra',
+                );
+              }
+              return NewsDetailScreen(item: extra);
+            },
+          ),
         ],
       ),
     ],
+    errorBuilder: (context, state) => _BadRouteScreen(
+      message: state.error?.toString() ?? 'Ruta no encontrada',
+    ),
   );
+}
+
+class _BadRouteScreen extends StatelessWidget {
+  final String message;
+  const _BadRouteScreen({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Error')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(message, textAlign: TextAlign.center),
+        ),
+      ),
+    );
+  }
 }
