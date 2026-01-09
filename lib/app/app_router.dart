@@ -18,6 +18,11 @@ import '../screens/news/news_list_screen.dart';
 import '../screens/news/news_detail_screen.dart';
 import '../models/news_item.dart';
 
+// Cursos (Grado / Posgrado)
+import '../screens/courses/course_list_screen.dart';
+import '../screens/courses/course_detail_screen.dart';
+import '../models/course_item.dart';
+
 // Widgets
 import '../widgets/bottom_nav.dart';
 
@@ -86,6 +91,36 @@ class AppRouter {
                 );
               }
               return NewsDetailScreen(item: extra);
+            },
+          ),
+
+          // ======================
+          // Cursos (Grado / Posgrado)
+          // ======================
+          GoRoute(
+            path: '/grado',
+            builder: (context, state) => const CourseListScreen(
+              type: 1,
+              title: 'Grado',
+            ),
+          ),
+          GoRoute(
+            path: '/posgrado',
+            builder: (context, state) => const CourseListScreen(
+              type: 2,
+              title: 'Posgrado',
+            ),
+          ),
+          GoRoute(
+            path: '/courses/detail',
+            builder: (context, state) {
+              final extra = state.extra;
+              if (extra is! CourseItem) {
+                return const _BadRouteScreen(
+                  message: 'Falta CourseItem en state.extra',
+                );
+              }
+              return CourseDetailScreen(item: extra);
             },
           ),
         ],

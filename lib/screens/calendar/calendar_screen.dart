@@ -1,8 +1,34 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:table_calendar/table_calendar.dart';
+import 'package:intl/intl.dart';
+
+/// Categorías típicas del calendario PUCE (ajústalas a lo que tengas real).
+enum CalendarCategory {
+  todos,
+  grado,
+  posgrado,
+  pucetecGrado,
+}
+
+class CalendarEvent {
+  final CalendarCategory category;
+  final String title;
+  final DateTime start;
+  final DateTime? end; // si es null, es evento de 1 día
+  final String? note;
+
+  const CalendarEvent({
+    required this.category,
+    required this.title,
+    required this.start,
+    this.end,
+    this.note,
+  });
+
+  bool get isRange => end != null && !isSameDay(start, end!);
+}
+
+bool isSameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -12,462 +38,503 @@ class CalendarScreen extends StatefulWidget {
 }
 
 class _CalendarScreenState extends State<CalendarScreen> {
-  static const _storageKey = 'pucesm_calendar_events_v3';
+  CalendarCategory _filter = CalendarCategory.todos;
+  String _query = '';
 
-  DateTime focusedDay = DateTime.now();
-  DateTime? selectedDay;
-
-  final Map<String, List<_CalendarEvent>> eventsByDate = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _loadEvents();
-  }
-
-  String _keyFromDate(DateTime d) {
-    final local = DateTime(d.year, d.month, d.day);
-    final mm = local.month.toString().padLeft(2, '0');
-    final dd = local.day.toString().padLeft(2, '0');
-    return '${local.year}-$mm-$dd';
-  }
-
-  List<_CalendarEvent> _getEventsForDay(DateTime day) {
-    final key = _keyFromDate(day);
-    return eventsByDate[key] ?? [];
-  }
-
-  Future<void> _loadEvents() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_storageKey);
-
-    if (raw == null || raw.isEmpty) {
-      _seedDefaultAcademicCalendar();
-      await _saveEvents();
-      if (mounted) setState(() {});
-      return;
-    }
-
-    final decoded = jsonDecode(raw) as Map<String, dynamic>;
-    eventsByDate.clear();
-    decoded.forEach((key, value) {
-      final list = (value as List)
-          .map((e) => _CalendarEvent.fromJson(e as Map<String, dynamic>))
-          .toList();
-      eventsByDate[key] = list;
-    });
-
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _saveEvents() async {
-    final prefs = await SharedPreferences.getInstance();
-    final toSave = <String, dynamic>{};
-    eventsByDate.forEach((key, list) {
-      toSave[key] = list.map((e) => e.toJson()).toList();
-    });
-    await prefs.setString(_storageKey, jsonEncode(toSave));
-  }
-
-  void _seedDefaultAcademicCalendar() {
-    void add(DateTime date, String title, String details) {
-      final k = _keyFromDate(date);
-      eventsByDate.putIfAbsent(k, () => []);
-      eventsByDate[k]!.add(_CalendarEvent(title: title, details: details));
-    }
-
-    add(DateTime(2025, 10, 13), 'Inicio de clases',
-        'Grado / Posgrado (según calendario académico).');
-    add(DateTime(2025, 10, 13), 'Matrícula extraordinaria',
-        'Del 13 al 24 Oct 2025.');
-    add(DateTime(2025, 10, 27), 'Matrícula especial',
-        'Del 27 Oct al 7 Nov 2025.');
-
-    add(DateTime(2025, 11, 10), 'Borrado', 'Del 10 al 14 Nov 2025.');
-    add(DateTime(2025, 11, 29), 'Ceremonias de incorporación',
-        'Del 29 Nov al 14 Dic 2025.');
-
-    add(DateTime(2025, 12, 1), 'Evaluación docente',
-        'Del 1 Dic 2025 al 20 Feb 2026.');
-    add(DateTime(2025, 12, 19), 'Cierre de actividades académicas',
-        'Según calendario académico.');
-    add(DateTime(2025, 12, 22), 'Vacaciones', 'Del 22 Dic 2025 al 1 Ene 2026.');
-
-    add(DateTime(2026, 1, 2), 'Inicio de actividades',
-        'Inicio de actividades académicas y administrativas.');
-    add(DateTime(2026, 1, 5), 'Registro de notas', 'Del 5 al 9 Ene 2026.');
-    add(DateTime(2026, 1, 12), 'Exámenes', 'Del 12 al 16 Ene 2026.');
-    add(DateTime(2026, 1, 31), 'Examen de admisión',
-        '31 Ene 2026 (según calendario).');
-  }
-
-  Future<void> _addEventFlow() async {
-    final day = selectedDay ?? focusedDay;
-    await _upsertEventDialog(day: day);
-  }
-
-  Future<void> _editEventFlow(DateTime day, int index) async {
-    final list = _getEventsForDay(day);
-    if (index < 0 || index >= list.length) return;
-    await _upsertEventDialog(day: day, editIndex: index, existing: list[index]);
-  }
-
-  Future<void> _upsertEventDialog({
-    required DateTime day,
-    int? editIndex,
-    _CalendarEvent? existing,
-  }) async {
-    DateTime chosenDay = day;
-    final titleController = TextEditingController(text: existing?.title ?? '');
-    final detailsController =
-        TextEditingController(text: existing?.details ?? '');
-
-    Future<void> pickDate(StateSetter setModalState) async {
-      final picked = await showDatePicker(
-        context: context,
-        initialDate: chosenDay,
-        firstDate: DateTime(2020, 1, 1),
-        lastDate: DateTime(2030, 12, 31),
-      );
-      if (picked != null) {
-        setModalState(() => chosenDay = picked);
-      }
-    }
-
-    final result = await showDialog<_EventDraft>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return AlertDialog(
-              title: Text(editIndex == null ? 'Agregar evento' : 'Editar evento'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Fecha + botón cambiar
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Fecha: ${_keyFromDate(chosenDay)}',
-                            style: const TextStyle(
-                              color: Color(0xFF5B6472),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        TextButton.icon(
-                          onPressed: () => pickDate(setModalState),
-                          icon: const Icon(Icons.date_range),
-                          label: const Text('Cambiar'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Título',
-                        hintText: 'Ej: Entrega de proyecto',
-                        border: OutlineInputBorder(),
-                      ),
-                      textInputAction: TextInputAction.next,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: detailsController,
-                      decoration: const InputDecoration(
-                        labelText: 'Detalles (opcional)',
-                        hintText: 'Aula, indicaciones, link, etc.',
-                        border: OutlineInputBorder(),
-                      ),
-                      minLines: 3,
-                      maxLines: 6,
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancelar'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    final t = titleController.text.trim();
-                    final d = detailsController.text.trim();
-                    if (t.isEmpty) return;
-                    Navigator.pop(
-                      context,
-                      _EventDraft(
-                        date: chosenDay,
-                        event: _CalendarEvent(title: t, details: d),
-                      ),
-                    );
-                  },
-                  child: const Text('Guardar'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    if (result == null) return;
-
-    final oldKey = _keyFromDate(day);
-    final newKey = _keyFromDate(result.date);
-
-    // Si es edición, borramos el anterior del día viejo
-    if (editIndex != null) {
-      final oldList = eventsByDate[oldKey];
-      if (oldList != null && editIndex >= 0 && editIndex < oldList.length) {
-        oldList.removeAt(editIndex);
-        if (oldList.isEmpty) eventsByDate.remove(oldKey);
-      }
-    }
-
-    // Insertamos en el día nuevo
-    eventsByDate.putIfAbsent(newKey, () => []);
-    eventsByDate[newKey]!.add(result.event);
-
-    // Ajustamos selección/foco si movió la fecha
-    selectedDay = result.date;
-    focusedDay = result.date;
-
-    await _saveEvents();
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _removeEvent(DateTime day, int index) async {
-    final key = _keyFromDate(day);
-    final list = eventsByDate[key];
-    if (list == null || index < 0 || index >= list.length) return;
-
-    list.removeAt(index);
-    if (list.isEmpty) eventsByDate.remove(key);
-
-    await _saveEvents();
-    if (mounted) setState(() {});
-  }
+  // ✅ DATA MOCK (pon aquí tus eventos reales)
+  // Luego lo conectamos a API/JSON. Por ahora te lo dejo armado con ejemplos.
+  final List<CalendarEvent> _allEvents = [
+    CalendarEvent(
+      category: CalendarCategory.grado,
+      title: 'Registro de notas (Décimo Semestre Medicina y Séptimo Semestre Enfermería)',
+      start: DateTime(2025, 8, 4),
+      end: DateTime(2025, 8, 8),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.pucetecGrado,
+      title: 'Matrícula del periodo académico extraordinario 2025-1 (excepto Medicina)',
+      start: DateTime(2025, 8, 12),
+      end: DateTime(2025, 9, 5),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.grado,
+      title: 'Examen final (excepto Medicina) - Última semana de clases',
+      start: DateTime(2025, 8, 12),
+      end: DateTime(2025, 8, 15),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.posgrado,
+      title: 'Cierre del primer periodo académico Programas Sede Manabí',
+      start: DateTime(2025, 9, 15),
+      end: DateTime(2025, 9, 19),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.grado,
+      title: 'Inicio de clases (todas las carreras, excepto Medicina)',
+      start: DateTime(2025, 10, 13),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.posgrado,
+      title: 'Evaluación docente',
+      start: DateTime(2025, 10, 20),
+      end: DateTime(2026, 3, 20),
+      note: 'Rango largo (se muestra como período).',
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final day = selectedDay ?? focusedDay;
-    final dayEvents = _getEventsForDay(day);
+    final primary = Theme.of(context).colorScheme.primary;
 
-    return Stack(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
+    final filtered = _allEvents.where((e) {
+      final matchFilter = _filter == CalendarCategory.todos || e.category == _filter;
+      final matchQuery = _query.trim().isEmpty ||
+          e.title.toLowerCase().contains(_query.trim().toLowerCase());
+      return matchFilter && matchQuery;
+    }).toList()
+      ..sort((a, b) => a.start.compareTo(b.start));
+
+    final grouped = _groupByMonth(filtered);
+
+    return Scaffold(
+      // 👇 Ya quitamos la AppBar del shell; aquí solo ponemos si quieres.
+      appBar: AppBar(
+        title: const Text('Calendario académico'),
+        centerTitle: true,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          _SearchBox(
+            onChanged: (v) => setState(() => _query = v),
+          ),
+          const SizedBox(height: 12),
+
+          _FilterChips(
+            selected: _filter,
+            onChanged: (v) => setState(() => _filter = v),
+            primary: primary,
+          ),
+
+          const SizedBox(height: 14),
+
+          if (filtered.isEmpty)
+            const _EmptyState()
+          else
+            ...grouped.entries.map((entry) {
+              final monthKey = entry.key;
+              final events = entry.value;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _MonthHeader(monthKey: monthKey),
+                  const SizedBox(height: 10),
+
+                  ...events.map(
+                    (e) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _EventCard(
+                        event: e,
+                        primary: primary,
+                        onTap: () => _openEventBottomSheet(e),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+                ],
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  Map<String, List<CalendarEvent>> _groupByMonth(List<CalendarEvent> events) {
+    // key: "AGO 2025", "SEPT 2025", etc
+    final map = <String, List<CalendarEvent>>{};
+    for (final e in events) {
+      final key = _monthKey(e.start);
+      map.putIfAbsent(key, () => []);
+      map[key]!.add(e);
+    }
+    return map;
+  }
+
+  String _monthKey(DateTime d) {
+    // meses en español abreviados estilo tu captura (AGO, SEPT, OCT...)
+    const months = {
+      1: 'ENE',
+      2: 'FEB',
+      3: 'MAR',
+      4: 'ABR',
+      5: 'MAY',
+      6: 'JUN',
+      7: 'JUL',
+      8: 'AGO',
+      9: 'SEPT',
+      10: 'OCT',
+      11: 'NOV',
+      12: 'DIC',
+    };
+    return '${months[d.month]} ${d.year}';
+  }
+
+  void _openEventBottomSheet(CalendarEvent e) {
+    final df = DateFormat('dd MMM yyyy', 'es');
+    final dateText = e.end == null
+        ? df.format(e.start)
+        : '${df.format(e.start)} — ${df.format(e.end!)}';
+
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        final primary = Theme.of(context).colorScheme.primary;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: const [
-                    BoxShadow(
-                      blurRadius: 16,
-                      offset: Offset(0, 6),
-                      color: Color(0x14000000),
-                    ),
-                  ],
-                ),
-                child: TableCalendar(
-                  firstDay: DateTime.utc(2020, 1, 1),
-                  lastDay: DateTime.utc(2030, 12, 31),
-                  focusedDay: focusedDay,
-                  selectedDayPredicate: (d) =>
-                      selectedDay != null &&
-                      d.year == selectedDay!.year &&
-                      d.month == selectedDay!.month &&
-                      d.day == selectedDay!.day,
-                  eventLoader: (d) =>
-                      _getEventsForDay(d).map((e) => e.title).toList(),
-                  onDaySelected: (sel, foc) {
-                    setState(() {
-                      selectedDay = sel;
-                      focusedDay = foc;
-                    });
-                  },
-                  onPageChanged: (foc) => focusedDay = foc,
-                  calendarStyle: CalendarStyle(
-                    markerDecoration: const BoxDecoration(
-                      color: Color(0xFF1E63FF),
-                      shape: BoxShape.circle,
-                    ),
-                    todayDecoration: BoxDecoration(
-                      color: const Color(0xFF1E63FF).withOpacity(0.25),
-                      shape: BoxShape.circle,
-                    ),
-                    selectedDecoration: const BoxDecoration(
-                      color: Color(0xFF1E63FF),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  headerStyle: const HeaderStyle(
-                    formatButtonVisible: false,
-                    titleCentered: true,
-                  ),
+              Text(
+                _categoryLabel(e.category),
+                style: TextStyle(
+                  color: primary,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 6),
+              Text(
+                e.title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 10),
               Row(
                 children: [
-                  const Expanded(
-                    child: Text(
-                      'Eventos del día',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  const Icon(Icons.event, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(dateText)),
+                ],
+              ),
+              if (e.note != null && e.note!.trim().isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  e.note!,
+                  style: const TextStyle(color: Color(0xFF5B6472)),
+                ),
+              ],
+              const SizedBox(height: 14),
+
+              // 🔔 Aquí luego conectamos notificaciones / agregar a calendario
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Luego: agregar recordatorio / notificación'),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.notifications_active_outlined),
+                      label: const Text('Recordarme'),
                     ),
                   ),
-                  Text(
-                    _keyFromDate(day),
-                    style: const TextStyle(
-                      color: Color(0xFF5B6472),
-                      fontWeight: FontWeight.w600,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Luego: exportar a calendario del dispositivo'),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.calendar_month),
+                      label: const Text('Agregar'),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Expanded(
-                child: dayEvents.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No hay eventos registrados para este día.',
-                          style: TextStyle(color: Color(0xFF5B6472)),
-                        ),
-                      )
-                    : ListView.separated(
-                        itemCount: dayEvents.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(height: 10),
-                        itemBuilder: (context, i) {
-                          final ev = dayEvents[i];
-                          return Dismissible(
-                            key: ValueKey(
-                                '${_keyFromDate(day)}-$i-${ev.title}-${ev.details}'),
-                            direction: DismissDirection.endToStart,
-                            background: Container(
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 16),
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade400,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child:
-                                  const Icon(Icons.delete, color: Colors.white),
-                            ),
-                            onDismissed: (_) => _removeEvent(day, i),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(16),
-                              onTap: () => _editEventFlow(day, i),
-                              child: Container(
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      blurRadius: 14,
-                                      offset: Offset(0, 6),
-                                      color: Color(0x12000000),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 38,
-                                      height: 38,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFEAF2FF),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: const Icon(Icons.event,
-                                          color: Color(0xFF1E63FF)),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            ev.title,
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w800,
-                                            ),
-                                          ),
-                                          if (ev.details.trim().isNotEmpty) ...[
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              ev.details,
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                height: 1.2,
-                                                color: Color(0xFF5B6472),
-                                              ),
-                                            ),
-                                          ]
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Icon(Icons.edit,
-                                        size: 18, color: Color(0xFF9AA3AF)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
             ],
           ),
-        ),
+        );
+      },
+    );
+  }
 
-        Positioned(
-          right: 18,
-          bottom: 18,
-          child: FloatingActionButton(
-            onPressed: _addEventFlow,
-            backgroundColor: const Color(0xFF1E63FF),
-            child: const Icon(Icons.add, color: Colors.white),
-          ),
+  String _categoryLabel(CalendarCategory c) {
+    switch (c) {
+      case CalendarCategory.grado:
+        return 'GRADO';
+      case CalendarCategory.posgrado:
+        return 'POSGRADO';
+      case CalendarCategory.pucetecGrado:
+        return 'PUCETEC/GRADO';
+      case CalendarCategory.todos:
+        return 'TODOS';
+    }
+  }
+}
+
+class _SearchBox extends StatelessWidget {
+  final ValueChanged<String> onChanged;
+  const _SearchBox({required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        hintText: 'Buscar evento...',
+        prefixIcon: const Icon(Icons.search),
+        filled: true,
+        fillColor: const Color(0xFFF1F4FA),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
         ),
+      ),
+    );
+  }
+}
+
+class _FilterChips extends StatelessWidget {
+  final CalendarCategory selected;
+  final ValueChanged<CalendarCategory> onChanged;
+  final Color primary;
+
+  const _FilterChips({
+    required this.selected,
+    required this.onChanged,
+    required this.primary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Widget chip(CalendarCategory c, String label) {
+      final active = selected == c;
+      return ChoiceChip(
+        selected: active,
+        label: Text(label),
+        onSelected: (_) => onChanged(c),
+        selectedColor: primary.withOpacity(0.15),
+        labelStyle: TextStyle(
+          fontWeight: FontWeight.w700,
+          color: active ? primary : const Color(0xFF5B6472),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        chip(CalendarCategory.todos, 'Todos'),
+        chip(CalendarCategory.grado, 'Grado'),
+        chip(CalendarCategory.posgrado, 'Posgrado'),
+        chip(CalendarCategory.pucetecGrado, 'PUCETEC/Grado'),
       ],
     );
   }
 }
 
-class _CalendarEvent {
-  final String title;
-  final String details;
+class _MonthHeader extends StatelessWidget {
+  final String monthKey;
+  const _MonthHeader({required this.monthKey});
 
-  const _CalendarEvent({required this.title, required this.details});
-
-  Map<String, dynamic> toJson() => {'title': title, 'details': details};
-
-  factory _CalendarEvent.fromJson(Map<String, dynamic> json) {
-    return _CalendarEvent(
-      title: (json['title'] ?? '').toString(),
-      details: (json['details'] ?? '').toString(),
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: primary.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.calendar_month),
+          const SizedBox(width: 10),
+          Text(
+            monthKey,
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              color: primary,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _EventDraft {
-  final DateTime date;
-  final _CalendarEvent event;
+class _EventCard extends StatelessWidget {
+  final CalendarEvent event;
+  final Color primary;
+  final VoidCallback onTap;
 
-  _EventDraft({required this.date, required this.event});
+  const _EventCard({
+    required this.event,
+    required this.primary,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final df = DateFormat('dd MMM', 'es');
+    final dateText = event.end == null
+        ? df.format(event.start)
+        : '${df.format(event.start)} — ${df.format(event.end!)}';
+
+    final cat = _label(event.category);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [
+            BoxShadow(
+              blurRadius: 16,
+              offset: Offset(0, 6),
+              color: Color(0x14000000),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: primary.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                Icons.event_note,
+                color: primary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _MiniPill(text: cat, color: primary),
+                      _MiniPill(text: dateText, color: const Color(0xFF5B6472)),
+                      if (event.isRange)
+                        _MiniPill(text: 'Período', color: const Color(0xFF5B6472)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    event.title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _label(CalendarCategory c) {
+    switch (c) {
+      case CalendarCategory.grado:
+        return 'GRADO';
+      case CalendarCategory.posgrado:
+        return 'POSGRADO';
+      case CalendarCategory.pucetecGrado:
+        return 'PUCETEC/GRADO';
+      case CalendarCategory.todos:
+        return 'TODOS';
+    }
+  }
+}
+
+class _MiniPill extends StatelessWidget {
+  final String text;
+  final Color color;
+
+  const _MiniPill({required this.text, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w800,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F4FA),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Column(
+        children: [
+          Icon(Icons.event_busy, size: 40),
+          SizedBox(height: 10),
+          Text(
+            'No hay eventos con esos filtros.',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'Prueba cambiando la categoría o el texto de búsqueda.',
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
 }

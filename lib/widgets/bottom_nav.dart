@@ -13,29 +13,14 @@ class BottomNav extends StatelessWidget {
     return 0;
   }
 
-  String _titleFromIndex(int index) {
-    switch (index) {
-      case 1:
-        return 'Calendario';
-      case 2:
-        return 'Entorno virtual';
-      case 3:
-        return 'Perfil';
-      default:
-        return 'Inicio';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final String location = GoRouterState.of(context).uri.toString();
     final int index = _indexFromLocation(location);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_titleFromIndex(index)),
-        centerTitle: true,
-      ),
+      // ✅ Quitamos el AppBar para evitar:
+      // "Inicio" + luego "Noticias/Detalle" (redundante) en pantallas internas
       body: child,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: index,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../models/news_item.dart';
+import '../../models/course_item.dart';
 import '../../services/pucem_api.dart';
 
 enum HomeSection { noticias, grado, posgrado }
@@ -18,15 +19,31 @@ class _HomeScreenState extends State<HomeScreen> {
 
   late Future<List<NewsItem>> _newsFuture;
 
+  // ✅ NUEVO: previews de Grado / Posgrado
+  late Future<List<CourseItem>> _gradoFuture;
+  late Future<List<CourseItem>> _posgradoFuture;
+
   @override
   void initState() {
     super.initState();
     _newsFuture = PucemApi.fetchNews();
+    _gradoFuture = PucemApi.fetchCourses(1);
+    _posgradoFuture = PucemApi.fetchCourses(2);
   }
 
   Future<void> _refreshNews() async {
     setState(() => _newsFuture = PucemApi.fetchNews());
     await _newsFuture;
+  }
+
+  Future<void> _refreshGrado() async {
+    setState(() => _gradoFuture = PucemApi.fetchCourses(1));
+    await _gradoFuture;
+  }
+
+  Future<void> _refreshPosgrado() async {
+    setState(() => _posgradoFuture = PucemApi.fetchCourses(2));
+    await _posgradoFuture;
   }
 
   @override
@@ -56,9 +73,20 @@ class _HomeScreenState extends State<HomeScreen> {
             const _InfoCard(
               title: 'Carreras de Grado',
               subtitle:
-                  'Aquí mostraremos la información de carreras de grado (lista, detalle, contacto, etc.).',
+                  'Explora la oferta de carreras de grado disponibles en PUCE Manabí.',
               icon: Icons.school,
             ),
+            const SizedBox(height: 12),
+
+            // ✅ NUEVO: 3 carreras + ver todas
+            _CoursesPreview(
+              title: 'Grado',
+              future: _gradoFuture,
+              onRefresh: _refreshGrado,
+              onSeeAll: () => context.go('/grado'),
+              onOpenDetail: (c) => context.push('/courses/detail', extra: c),
+            ),
+
             const SizedBox(height: 12),
             _QuickButtonsRow(
               onCalendar: () => context.go('/calendar'),
@@ -68,9 +96,20 @@ class _HomeScreenState extends State<HomeScreen> {
             const _InfoCard(
               title: 'Posgrado',
               subtitle:
-                  'Aquí mostraremos la información de programas de posgrado (maestrías, requisitos, etc.).',
+                  'Explora maestrías y programas de posgrado disponibles en PUCE Manabí.',
               icon: Icons.workspace_premium,
             ),
+            const SizedBox(height: 12),
+
+            // ✅ NUEVO: 3 programas + ver todos
+            _CoursesPreview(
+              title: 'Posgrado',
+              future: _posgradoFuture,
+              onRefresh: _refreshPosgrado,
+              onSeeAll: () => context.go('/posgrado'),
+              onOpenDetail: (c) => context.push('/courses/detail', extra: c),
+            ),
+
             const SizedBox(height: 12),
             _QuickButtonsRow(
               onCalendar: () => context.go('/calendar'),
@@ -84,6 +123,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+
+// ======================
+// NEWS PREVIEW
+// ======================
 
 class _NewsPreview extends StatelessWidget {
   final Future<List<NewsItem>> future;
@@ -120,7 +163,6 @@ class _NewsPreview extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-
         FutureBuilder<List<NewsItem>>(
           future: future,
           builder: (context, snap) {
@@ -221,8 +263,7 @@ class _NewsCard extends StatelessWidget {
                     child: Image.network(
                       imageUrl!,
                       fit: BoxFit.cover,
-                      // IMPORTANTE: algunos servers se ponen especiales con Referer/Origin.
-                      headers: PucemApi.defaultHeaders(),
+                      headers: PucemApi.defaultHeaders(isImage: true),
                       errorBuilder: (_, __, ___) =>
                           const Center(child: Icon(Icons.image_not_supported)),
                     ),
@@ -334,6 +375,224 @@ class _NewsError extends StatelessWidget {
     );
   }
 }
+
+// ======================
+// COURSES PREVIEW (GRADO / POSGRADO)
+// ======================
+
+class _CoursesPreview extends StatelessWidget {
+  final String title;
+  final Future<List<CourseItem>> future;
+  final Future<void> Function() onRefresh;
+  final VoidCallback onSeeAll;
+  final void Function(CourseItem) onOpenDetail;
+
+  const _CoursesPreview({
+    required this.title,
+    required this.future,
+    required this.onRefresh,
+    required this.onSeeAll,
+    required this.onOpenDetail,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              ),
+            ),
+            TextButton(
+              onPressed: onSeeAll,
+              child: const Text('Ver todas'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        FutureBuilder<List<CourseItem>>(
+          future: future,
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (snap.hasError) {
+              return Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'No se pudieron cargar.',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      snap.error.toString(),
+                      style: const TextStyle(color: Color(0xFF5B6472)),
+                    ),
+                    const SizedBox(height: 10),
+                    ElevatedButton.icon(
+                      onPressed: onRefresh,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Reintentar'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final items = snap.data ?? const <CourseItem>[];
+            if (items.isEmpty) {
+              return const Text('No hay resultados por ahora.');
+            }
+
+            final preview = items.take(3).toList();
+
+            return Column(
+              children: [
+                ...preview.map(
+                  (c) => Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: _CourseCard(
+                      item: c,
+                      primary: primary,
+                      onTap: () => onOpenDetail(c),
+                    ),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: onSeeAll,
+                    icon: const Icon(Icons.list_alt),
+                    label: const Text('Ver todas'),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _CourseCard extends StatelessWidget {
+  final CourseItem item;
+  final Color primary;
+  final VoidCallback onTap;
+
+  const _CourseCard({
+    required this.item,
+    required this.primary,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // ✅ OJO: para cursos, la imagen suele venir igual por content/take/file.
+    // Usamos fileUri por consistencia (y headers isImage:true).
+    final img = item.imageName.isNotEmpty
+        ? PucemApi.fileUri(item.imageName).toString()
+        : null;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [
+            BoxShadow(
+              blurRadius: 16,
+              offset: Offset(0, 6),
+              color: Color(0x14000000),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (img != null)
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Image.network(
+                  img,
+                  fit: BoxFit.cover,
+                  headers: PucemApi.defaultHeaders(isImage: true),
+                  errorBuilder: (_, __, ___) =>
+                      const Center(child: Icon(Icons.image_not_supported)),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    ),
+                  ),
+                  if (item.predescription.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      item.predescription,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.3,
+                        color: Color(0xFF5B6472),
+                      ),
+                    ),
+                  ],
+                  if (item.modality.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Icon(Icons.school, size: 16, color: primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          item.modality,
+                          style: TextStyle(
+                            color: primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ======================
+// UI PIECES
+// ======================
 
 class _Header extends StatelessWidget {
   const _Header();
