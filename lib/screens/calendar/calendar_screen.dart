@@ -7,8 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/notification_service.dart';
 
 /// Categorías del calendario PUCE (según tu captura).
-/// - all: solo para el filtro "Todos" (muestra todo)
-/// - los demás: categorías reales del calendario
 enum CalendarCategory {
   all,
   todos,
@@ -50,7 +48,6 @@ Iterable<DateTime> _monthsTouched(DateTime start, DateTime end) sync* {
 }
 
 /// ✅ Recorta rangos demasiado largos a solo un día (solo fecha de inicio)
-/// Esto aplica a eventos como "Evaluación docente (oct -> mar)".
 CalendarEvent _trimExcessiveRange(CalendarEvent e, {int maxDays = 45}) {
   if (e.end == null) return e;
 
@@ -58,7 +55,6 @@ CalendarEvent _trimExcessiveRange(CalendarEvent e, {int maxDays = 45}) {
   final end = _dateOnly(e.end!);
   final days = end.difference(start).inDays;
 
-  // Si dura demasiado, se queda solo con el inicio.
   if (days > maxDays) {
     return CalendarEvent(
       category: e.category,
@@ -81,6 +77,16 @@ class CalendarScreen extends StatefulWidget {
 class _CalendarScreenState extends State<CalendarScreen> {
   CalendarCategory _filter = CalendarCategory.all;
   String _query = '';
+
+  // ✅ Para mostrar SnackBars aunque cierres el bottom sheet
+  final GlobalKey<ScaffoldMessengerState> _messengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+
+  void _toast(String msg) {
+    _messengerKey.currentState
+      ?..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(msg)));
+  }
 
   // ✅ EVENTOS REALES (solo los de tu captura OCT–ENE'26)
   final List<CalendarEvent> _allEvents = [
@@ -133,13 +139,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
       category: CalendarCategory.posgrado,
       title: 'Evaluación docente',
       start: DateTime(2025, 10, 20),
-      end: DateTime(2026, 3, 20), // ⬅️ se recorta a 1 día por lógica
+      end: DateTime(2026, 3, 20),
     ),
     CalendarEvent(
       category: CalendarCategory.posgrado,
       title: 'Registro de notas',
       start: DateTime(2025, 10, 20),
-      end: DateTime(2026, 3, 20), // ⬅️ se recorta a 1 día por lógica
+      end: DateTime(2026, 3, 20),
     ),
     CalendarEvent(
       category: CalendarCategory.pucetecGrado,
@@ -185,7 +191,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       category: CalendarCategory.pucetecGrado,
       title: 'Evaluación docente 2025-2',
       start: DateTime(2025, 12, 1),
-      end: DateTime(2026, 2, 20), // ⬅️ se recorta a 1 día por lógica
+      end: DateTime(2026, 2, 20),
     ),
     CalendarEvent(
       category: CalendarCategory.grado,
@@ -227,13 +233,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
       title:
           'Registro de aspirantes PAO 2026-1 (todas las carreras incluida Medicina)',
       start: DateTime(2026, 1, 13),
-      end: DateTime(2026, 3, 28), // ⬅️ se recorta a 1 día por lógica
+      end: DateTime(2026, 3, 28),
     ),
     CalendarEvent(
       category: CalendarCategory.posgrado,
       title: 'Registro de aspirantes PAO 2026-1',
       start: DateTime(2026, 1, 13),
-      end: DateTime(2026, 4, 4), // ⬅️ se recorta a 1 día por lógica
+      end: DateTime(2026, 4, 4),
     ),
     CalendarEvent(
       category: CalendarCategory.grado,
@@ -253,7 +259,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
 
-    // ✅ Aplica recorte de rangos excesivos antes de filtrar/mostrar
     final normalized = _allEvents.map(_trimExcessiveRange).toList();
 
     final filtered = normalized.where((e) {
@@ -267,57 +272,58 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     final grouped = _groupByMonthWithRanges(filtered);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Calendario académico'),
-        centerTitle: true,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: [
-          _SearchBox(
-            onChanged: (v) => setState(() => _query = v),
-          ),
-          const SizedBox(height: 12),
-          _FilterChips(
-            selected: _filter,
-            onChanged: (v) => setState(() => _filter = v),
-            primary: primary,
-          ),
-          const SizedBox(height: 14),
-          if (filtered.isEmpty)
-            const _EmptyState()
-          else
-            ...grouped.entries.map((entry) {
-              final monthKey = entry.key;
-              final events = entry.value;
+    return ScaffoldMessenger(
+      key: _messengerKey,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Calendario académico'),
+          centerTitle: true,
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: [
+            _SearchBox(
+              onChanged: (v) => setState(() => _query = v),
+            ),
+            const SizedBox(height: 12),
+            _FilterChips(
+              selected: _filter,
+              onChanged: (v) => setState(() => _filter = v),
+              primary: primary,
+            ),
+            const SizedBox(height: 14),
+            if (filtered.isEmpty)
+              const _EmptyState()
+            else
+              ...grouped.entries.map((entry) {
+                final monthKey = entry.key;
+                final events = entry.value;
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _MonthHeader(monthKey: monthKey),
-                  const SizedBox(height: 10),
-                  ...events.map(
-                    (e) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _EventCard(
-                        event: e,
-                        primary: primary,
-                        onTap: () => _openEventBottomSheet(e),
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _MonthHeader(monthKey: monthKey),
+                    const SizedBox(height: 10),
+                    ...events.map(
+                      (e) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _EventCard(
+                          event: e,
+                          primary: primary,
+                          onTap: () => _openEventBottomSheet(e),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                ],
-              );
-            }),
-        ],
+                    const SizedBox(height: 6),
+                  ],
+                );
+              }),
+          ],
+        ),
       ),
     );
   }
 
-  /// ✅ Si un evento cruza meses, aparece en cada mes tocado.
-  /// (OJO: ya recortamos rangos excesivos, así que no saturan la lista.)
   Map<String, List<CalendarEvent>> _groupByMonthWithRanges(
       List<CalendarEvent> events) {
     final map = <String, List<CalendarEvent>>{};
@@ -360,13 +366,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   void _openEventBottomSheet(CalendarEvent e) {
     final df = DateFormat('dd MMM yyyy', 'es');
-    final dateText = df.format(e.start); // ✅ solo una fecha
+    final dateText = df.format(e.start);
 
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
-      builder: (context) {
-        final primary = Theme.of(context).colorScheme.primary;
+      builder: (sheetCtx) {
+        final primary = Theme.of(sheetCtx).colorScheme.primary;
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
           child: Column(
@@ -403,7 +409,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () async {
-                        Navigator.pop(context);
+                        Navigator.pop(sheetCtx);
                         await _scheduleReminderForEvent(e);
                       },
                       icon: const Icon(Icons.notifications_active_outlined),
@@ -414,7 +420,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () async {
-                        Navigator.pop(context);
+                        Navigator.pop(sheetCtx);
                         await _addEventToDeviceCalendar(e);
                       },
                       icon: const Icon(Icons.calendar_month),
@@ -431,8 +437,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Future<void> _addEventToDeviceCalendar(CalendarEvent e) async {
-    // ✅ Ya que en UI dejamos solo una fecha para todo,
-    // lo agregamos como evento de día completo.
     final start = DateTime(e.start.year, e.start.month, e.start.day, 0);
     final end = DateTime(e.start.year, e.start.month, e.start.day, 23, 59);
 
@@ -446,20 +450,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     try {
       final ok = await a2c.Add2Calendar.addEvent2Cal(event);
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            ok ? 'Evento agregado al calendario.' : 'No se pudo agregar el evento.',
-          ),
-        ),
-      );
+      _toast(ok ? 'Evento agregado al calendario.' : 'No se pudo agregar el evento.');
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error al intentar agregar al calendario.')),
-      );
+      _toast('Error al intentar agregar al calendario.');
     }
   }
 
@@ -469,28 +462,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Future<bool> _canNotifyForEvent(CalendarEvent e) async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Switch maestro (tu pantalla actual lo usa)
-    final masterOn = prefs.getBool('privacy_notifications') ?? true;
+    final calendarOn = prefs.getBool('notif_calendar_enabled') ?? true;
+    if (!calendarOn) return false;
 
-    // Switch específico del calendario (lo crearemos en PrivacySecurityScreen)
-    final calendarOn = prefs.getBool('notif_calendar_enabled') ?? masterOn;
-
-    if (!masterOn || !calendarOn) return false;
-
-    // Nivel del usuario (lo guardaremos desde EditProfileScreen)
-    // valores esperados: 'grado' o 'posgrado'
     final level = (prefs.getString('profile_level') ?? 'grado').toLowerCase();
-
-    // Solo mi nivel
     final onlyMyLevel = prefs.getBool('notif_calendar_only_my_level') ?? true;
 
-    // Incluir institucional/todos (por defecto sí)
     final includeInstitutional =
         prefs.getBool('notif_calendar_include_institutional') ?? true;
 
     if (!onlyMyLevel) return true;
 
-    // Si es institucional y el usuario permite incluirlo
     if (includeInstitutional && e.category == CalendarCategory.todos) {
       return true;
     }
@@ -502,7 +484,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
       return e.category == CalendarCategory.posgrado;
     }
 
-    // Si el valor está raro, no bloqueamos
     return true;
   }
 
@@ -510,24 +491,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final allowed = await _canNotifyForEvent(e);
 
     if (!allowed) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Este recordatorio está desactivado por tus preferencias (nivel o notificaciones).',
-          ),
-        ),
-      );
+      _toast('Recordatorio desactivado por tus preferencias (nivel o notificaciones).');
       return;
     }
 
     final now = DateTime.now();
 
-    // ✅ Evento base (9am del día del evento)
     final eventTime = DateTime(e.start.year, e.start.month, e.start.day, 9);
 
-    // Preferencia: 1 día antes a las 09:00.
     final oneDayBefore = DateTime(e.start.year, e.start.month, e.start.day)
         .subtract(const Duration(days: 1))
         .add(const Duration(hours: 9));
@@ -536,33 +507,29 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (oneDayBefore.isAfter(now)) {
       when = oneDayBefore;
     } else {
-      // Si ya no se puede 1 día antes, intenta 1 hora antes.
       final oneHourBefore = eventTime.subtract(const Duration(hours: 1));
       when = oneHourBefore.isAfter(now)
           ? oneHourBefore
-          : now.add(const Duration(seconds: 10)); // fallback
+          : now.add(const Duration(seconds: 10));
     }
 
     final tzWhen = tz.TZDateTime.from(when, tz.local);
-
-    // id estable por evento
     final id = e.title.hashCode & 0x7FFFFFFF;
 
-    await NotificationService.scheduleReminder(
-      id: id,
-      title: 'Recordatorio PUCE',
-      body: e.title,
-      when: tzWhen,
-    );
+    try {
+      await NotificationService.scheduleReminder(
+        id: id,
+        title: 'Recordatorio PUCE',
+        body: e.title,
+        when: tzWhen,
+      );
 
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Recordatorio programado para ${DateFormat('dd/MM/yyyy HH:mm').format(when)}',
-        ),
-      ),
-    );
+      _toast(
+        '✅ Listo. Te recordaré el ${DateFormat('dd/MM/yyyy').format(when)} a las ${DateFormat('HH:mm').format(when)}',
+      );
+    } catch (err) {
+      _toast('❌ No se pudo programar el recordatorio: $err');
+    }
   }
 
   String _categoryLabel(CalendarCategory c) {
@@ -663,7 +630,7 @@ class _MonthHeader extends StatelessWidget {
       child: Row(
         children: [
           const Icon(Icons.calendar_month),
-          const SizedBox(width: 10),
+          const SizedBox(height: 10),
           Text(
             monthKey,
             style: TextStyle(
@@ -692,8 +659,6 @@ class _EventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final df = DateFormat('dd MMM', 'es');
-
-    // ✅ Para la vista: solo mostrar un día (inicio)
     final dateText = df.format(event.start);
     final cat = _label(event.category);
 
@@ -723,10 +688,7 @@ class _EventCard extends StatelessWidget {
                 color: primary.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(
-                Icons.event_note,
-                color: primary,
-              ),
+              child: Icon(Icons.event_note, color: primary),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -739,10 +701,7 @@ class _EventCard extends StatelessWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       _MiniPill(text: cat, color: primary),
-                      _MiniPill(
-                        text: dateText,
-                        color: const Color(0xFF5B6472),
-                      ),
+                      _MiniPill(text: dateText, color: const Color(0xFF5B6472)),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -836,4 +795,3 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
-

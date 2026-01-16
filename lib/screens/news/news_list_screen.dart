@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:timezone/timezone.dart' as tz;
 
 import '../../models/news_item.dart';
 import '../../services/pucem_api.dart';
@@ -55,14 +54,11 @@ class _NewsListScreenState extends State<NewsListScreen> {
 
     final prefs = await SharedPreferences.getInstance();
 
-    // ✅ Master switch (tu PrivacySecurity lo usaba)
-    final globalOn = prefs.getBool('privacy_notifications') ?? true;
-
     // ✅ Switch de noticias (nuevo)
     // (si aún no existe, por defecto lo dejamos en true)
-    final newsOn = prefs.getBool('notif_news') ?? true;
+    final newsOn = prefs.getBool('notif_news_enabled') ?? true;
 
-    if (!globalOn || !newsOn) return;
+    if (!newsOn) return;
 
     // Tomamos la primera noticia (normalmente viene ordenada por más reciente)
     final latest = items.first;
@@ -77,14 +73,12 @@ class _NewsListScreenState extends State<NewsListScreen> {
     await prefs.setString('news_last_notified', fingerprint);
 
     // Disparamos notificación (programada a 2s, estilo "instantánea")
-    final when = tz.TZDateTime.now(tz.local).add(const Duration(seconds: 2));
     final id = fingerprint.hashCode & 0x7FFFFFFF;
 
-    await NotificationService.scheduleReminder(
+    await NotificationService.showInstant(
       id: id,
       title: 'Nueva noticia PUCE Manabí',
       body: latest.title,
-      when: when,
     );
   }
 

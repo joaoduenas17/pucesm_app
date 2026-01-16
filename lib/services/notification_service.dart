@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
@@ -84,17 +85,39 @@ class NotificationService {
       iOS: DarwinNotificationDetails(),
     );
 
-    await _plugin.zonedSchedule(
-      id,
-      title,
-      body,
-      when,
-      details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: null,
-    );
+    try {
+      // ✅ Intento 1: exacta (ideal)
+      await _plugin.zonedSchedule(
+        id,
+        title,
+        body,
+        when,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: null,
+      );
+    } on PlatformException catch (e) {
+      // ✅ Fallback: Android 12/13+ puede bloquear "exact alarms"
+      if (e.code == 'exact_alarms_not_permitted') {
+        await _plugin.zonedSchedule(
+          id,
+          title,
+          body,
+          when,
+          details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: null,
+        );
+        return;
+      }
+
+      // Si fue otro error, lo re-lanzamos
+      rethrow;
+    }
   }
 
   // =========================

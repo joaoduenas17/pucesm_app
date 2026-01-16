@@ -37,7 +37,19 @@ class _CourseListScreenState extends State<CourseListScreen> {
     final primary = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: AppBar(
+        title: Text(widget.title),
+        leading: IconButton(
+          icon: Icon(context.canPop() ? Icons.arrow_back : Icons.home_outlined),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
+        ),
+      ),
       body: FutureBuilder<List<CourseItem>>(
         future: _future,
         builder: (context, snap) {
@@ -130,8 +142,7 @@ class _CourseListScreenState extends State<CourseListScreen> {
                               if (c.modality.isNotEmpty)
                                 Row(
                                   children: [
-                                    Icon(Icons.school,
-                                        size: 16, color: primary),
+                                    Icon(Icons.school, size: 16, color: primary),
                                     const SizedBox(width: 6),
                                     Text(
                                       c.modality,
