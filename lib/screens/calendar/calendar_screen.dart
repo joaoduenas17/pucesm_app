@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:add_2_calendar/add_2_calendar.dart' as a2c;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/notification_service.dart';
 
@@ -462,7 +463,65 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
   }
 
+  // =========================
+  // ✅ NOTIFICACIONES (solo mi nivel)
+  // =========================
+  Future<bool> _canNotifyForEvent(CalendarEvent e) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Switch maestro (tu pantalla actual lo usa)
+    final masterOn = prefs.getBool('privacy_notifications') ?? true;
+
+    // Switch específico del calendario (lo crearemos en PrivacySecurityScreen)
+    final calendarOn = prefs.getBool('notif_calendar_enabled') ?? masterOn;
+
+    if (!masterOn || !calendarOn) return false;
+
+    // Nivel del usuario (lo guardaremos desde EditProfileScreen)
+    // valores esperados: 'grado' o 'posgrado'
+    final level = (prefs.getString('profile_level') ?? 'grado').toLowerCase();
+
+    // Solo mi nivel
+    final onlyMyLevel = prefs.getBool('notif_calendar_only_my_level') ?? true;
+
+    // Incluir institucional/todos (por defecto sí)
+    final includeInstitutional =
+        prefs.getBool('notif_calendar_include_institutional') ?? true;
+
+    if (!onlyMyLevel) return true;
+
+    // Si es institucional y el usuario permite incluirlo
+    if (includeInstitutional && e.category == CalendarCategory.todos) {
+      return true;
+    }
+
+    if (level == 'grado') {
+      return e.category == CalendarCategory.grado ||
+          e.category == CalendarCategory.pucetecGrado;
+    } else if (level == 'posgrado') {
+      return e.category == CalendarCategory.posgrado;
+    }
+
+    // Si el valor está raro, no bloqueamos
+    return true;
+  }
+
   Future<void> _scheduleReminderForEvent(CalendarEvent e) async {
+    final allowed = await _canNotifyForEvent(e);
+
+    if (!allowed) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Este recordatorio está desactivado por tus preferencias (nivel o notificaciones).',
+          ),
+        ),
+      );
+      return;
+    }
+
     final now = DateTime.now();
 
     // ✅ Evento base (9am del día del evento)
@@ -777,3 +836,4 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
+

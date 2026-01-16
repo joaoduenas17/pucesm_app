@@ -39,6 +39,30 @@ class NotificationService {
   }
 
   // =========================
+  // INSTANT (TEST)
+  // =========================
+  static Future<void> showInstant({
+    required int id,
+    required String title,
+    required String body,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'general',
+      'Notificaciones generales',
+      channelDescription: 'Notificaciones generales de la app',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: DarwinNotificationDetails(),
+    );
+
+    await _plugin.show(id, title, body, details);
+  }
+
+  // =========================
   // SCHEDULE
   // =========================
   static Future<void> scheduleReminder({

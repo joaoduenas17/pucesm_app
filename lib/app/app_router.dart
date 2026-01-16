@@ -9,7 +9,10 @@ import '../screens/home/home_screen.dart';
 import '../screens/calendar/calendar_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/edit_profile_screen.dart';
-import '../screens/profile/privacy_security_screen.dart'; // ✅ NUEVO
+import '../screens/profile/privacy_security_screen.dart';
+
+// ✅ NUEVO: Centro de ayuda
+import '../screens/help/help_center_screen.dart';
 
 // Entorno Virtual (WebView / in-app browser)
 import '../screens/virtual/virtual_screen.dart';
@@ -57,7 +60,7 @@ class AppRouter {
             builder: (context, state) => const CalendarScreen(),
           ),
 
-          // -------- Perfil público --------
+          // -------- Perfil --------
           GoRoute(
             path: '/profile',
             builder: (context, state) => const ProfileScreen(),
@@ -66,9 +69,24 @@ class AppRouter {
             path: '/profile/edit',
             builder: (context, state) => const EditProfileScreen(),
           ),
+
+          // ✅ Privacidad y seguridad
+          // (mantengo tu path actual /profile/security)
           GoRoute(
-            path: '/profile/security', // ✅ NUEVO
+            path: '/profile/security',
             builder: (context, state) => const PrivacySecurityScreen(),
+          ),
+
+          // ✅ Alias opcional (por si en algún lado lo llamas así)
+          GoRoute(
+            path: '/profile/privacy',
+            builder: (context, state) => const PrivacySecurityScreen(),
+          ),
+
+          // ✅ Centro de ayuda
+          GoRoute(
+            path: '/help',
+            builder: (context, state) => const HelpCenterScreen(),
           ),
 
           // ======================

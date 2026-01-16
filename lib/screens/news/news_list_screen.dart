@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import '../../models/news_item.dart';
 import '../../services/pucem_api.dart';
+import '../../services/notification_service.dart';
 
 class NewsListScreen extends StatefulWidget {
   const NewsListScreen({super.key});
@@ -14,15 +17,81 @@ class NewsListScreen extends StatefulWidget {
 class _NewsListScreenState extends State<NewsListScreen> {
   late Future<List<NewsItem>> _future;
 
+  bool _checkedNotificationsThisLoad = false;
+
   @override
   void initState() {
     super.initState();
-    _future = PucemApi.fetchNews();
+    _future = _fetchAndMaybeNotify();
   }
 
   Future<void> _refresh() async {
-    setState(() => _future = PucemApi.fetchNews());
+    setState(() {
+      _checkedNotificationsThisLoad = false;
+      _future = _fetchAndMaybeNotify();
+    });
     await _future;
+  }
+
+  Future<List<NewsItem>> _fetchAndMaybeNotify() async {
+    final items = await PucemApi.fetchNews();
+
+    // Evita notificar repetido por rebuilds
+    if (!_checkedNotificationsThisLoad) {
+      _checkedNotificationsThisLoad = true;
+      await _maybeNotifyForNews(items);
+    }
+
+    return items;
+  }
+
+  /// Notifica si:
+  /// - hay noticias
+  /// - notificaciones globales activas
+  /// - notificaciones de noticias activas
+  /// - la noticia "más nueva" cambió vs lo guardado
+  Future<void> _maybeNotifyForNews(List<NewsItem> items) async {
+    if (items.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+
+    // ✅ Master switch (tu PrivacySecurity lo usaba)
+    final globalOn = prefs.getBool('privacy_notifications') ?? true;
+
+    // ✅ Switch de noticias (nuevo)
+    // (si aún no existe, por defecto lo dejamos en true)
+    final newsOn = prefs.getBool('notif_news') ?? true;
+
+    if (!globalOn || !newsOn) return;
+
+    // Tomamos la primera noticia (normalmente viene ordenada por más reciente)
+    final latest = items.first;
+
+    // Fingerprint estable (si el API no trae ID)
+    final fingerprint = _newsFingerprint(latest);
+
+    final lastNotified = prefs.getString('news_last_notified') ?? '';
+    if (fingerprint == lastNotified) return; // anti-spam
+
+    // Guardamos ANTES de notificar (para evitar duplicados si algo crashea)
+    await prefs.setString('news_last_notified', fingerprint);
+
+    // Disparamos notificación (programada a 2s, estilo "instantánea")
+    final when = tz.TZDateTime.now(tz.local).add(const Duration(seconds: 2));
+    final id = fingerprint.hashCode & 0x7FFFFFFF;
+
+    await NotificationService.scheduleReminder(
+      id: id,
+      title: 'Nueva noticia PUCE Manabí',
+      body: latest.title,
+      when: when,
+    );
+  }
+
+  String _newsFingerprint(NewsItem n) {
+    // Si tu NewsItem tiene un id real (ej: n.id), cámbialo por eso y ya.
+    // Por ahora: title + dateLabel + imageName suelen cambiar si es otra noticia.
+    return '${n.title}|${n.dateLabel}|${n.imageName}';
   }
 
   @override
@@ -121,7 +190,7 @@ class _NewsCard extends StatelessWidget {
                     child: Image.network(
                       imageUrl!,
                       fit: BoxFit.cover,
-                      headers: PucemApi.defaultHeaders(), // ✅ CLAVE
+                      headers: PucemApi.defaultHeaders(isImage: true), // ✅
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
                         return const Center(
@@ -233,4 +302,3 @@ class _ErrorState extends StatelessWidget {
     );
   }
 }
-
