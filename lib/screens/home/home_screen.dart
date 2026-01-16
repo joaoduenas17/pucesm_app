@@ -505,7 +505,7 @@ class _CourseCard extends StatelessWidget {
     // ✅ OJO: para cursos, la imagen suele venir igual por content/take/file.
     // Usamos fileUri por consistencia (y headers isImage:true).
     final img = item.imageName.isNotEmpty
-        ? PucemApi.fileUri(item.imageName).toString()
+        ? PucemApi.courseImageUri(item.imageName).toString()
         : null;
 
     return InkWell(

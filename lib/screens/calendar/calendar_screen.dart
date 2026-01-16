@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:add_2_calendar/add_2_calendar.dart' as a2c;
+import 'package:timezone/timezone.dart' as tz;
 
-/// Categorías típicas del calendario PUCE (ajústalas a lo que tengas real).
+import '../../services/notification_service.dart';
+
+/// Categorías del calendario PUCE (según tu captura).
+/// - all: solo para el filtro "Todos" (muestra todo)
+/// - los demás: categorías reales del calendario
 enum CalendarCategory {
+  all,
   todos,
   grado,
   posgrado,
@@ -14,14 +21,12 @@ class CalendarEvent {
   final String title;
   final DateTime start;
   final DateTime? end; // si es null, es evento de 1 día
-  final String? note;
 
   const CalendarEvent({
     required this.category,
     required this.title,
     required this.start,
     this.end,
-    this.note,
   });
 
   bool get isRange => end != null && !isSameDay(start, end!);
@@ -29,6 +34,41 @@ class CalendarEvent {
 
 bool isSameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
+
+DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+DateTime _firstDayOfMonth(DateTime d) => DateTime(d.year, d.month, 1);
+
+/// Devuelve los primeros días de cada mes que intersecta el rango [start..end]
+Iterable<DateTime> _monthsTouched(DateTime start, DateTime end) sync* {
+  var cursor = _firstDayOfMonth(start);
+  final last = _firstDayOfMonth(end);
+  while (!cursor.isAfter(last)) {
+    yield cursor;
+    cursor = DateTime(cursor.year, cursor.month + 1, 1);
+  }
+}
+
+/// ✅ Recorta rangos demasiado largos a solo un día (solo fecha de inicio)
+/// Esto aplica a eventos como "Evaluación docente (oct -> mar)".
+CalendarEvent _trimExcessiveRange(CalendarEvent e, {int maxDays = 45}) {
+  if (e.end == null) return e;
+
+  final start = _dateOnly(e.start);
+  final end = _dateOnly(e.end!);
+  final days = end.difference(start).inDays;
+
+  // Si dura demasiado, se queda solo con el inicio.
+  if (days > maxDays) {
+    return CalendarEvent(
+      category: e.category,
+      title: e.title,
+      start: e.start,
+      end: null,
+    );
+  }
+
+  return e;
+}
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -38,47 +78,173 @@ class CalendarScreen extends StatefulWidget {
 }
 
 class _CalendarScreenState extends State<CalendarScreen> {
-  CalendarCategory _filter = CalendarCategory.todos;
+  CalendarCategory _filter = CalendarCategory.all;
   String _query = '';
 
-  // ✅ DATA MOCK (pon aquí tus eventos reales)
-  // Luego lo conectamos a API/JSON. Por ahora te lo dejo armado con ejemplos.
+  // ✅ EVENTOS REALES (solo los de tu captura OCT–ENE'26)
   final List<CalendarEvent> _allEvents = [
+    // OCT 2025
+    CalendarEvent(
+      category: CalendarCategory.posgrado,
+      title: 'Matrícula ordinaria',
+      start: DateTime(2025, 9, 22),
+      end: DateTime(2025, 10, 9),
+    ),
     CalendarEvent(
       category: CalendarCategory.grado,
-      title: 'Registro de notas (Décimo Semestre Medicina y Séptimo Semestre Enfermería)',
-      start: DateTime(2025, 8, 4),
-      end: DateTime(2025, 8, 8),
+      title: 'Sexto examen de admisión general PAO 2025-2 (excepto Medicina)',
+      start: DateTime(2025, 10, 8),
     ),
     CalendarEvent(
       category: CalendarCategory.pucetecGrado,
-      title: 'Matrícula del periodo académico extraordinario 2025-1 (excepto Medicina)',
-      start: DateTime(2025, 8, 12),
-      end: DateTime(2025, 9, 5),
-    ),
-    CalendarEvent(
-      category: CalendarCategory.grado,
-      title: 'Examen final (excepto Medicina) - Última semana de clases',
-      start: DateTime(2025, 8, 12),
-      end: DateTime(2025, 8, 15),
-    ),
-    CalendarEvent(
-      category: CalendarCategory.posgrado,
-      title: 'Cierre del primer periodo académico Programas Sede Manabí',
-      start: DateTime(2025, 9, 15),
-      end: DateTime(2025, 9, 19),
-    ),
-    CalendarEvent(
-      category: CalendarCategory.grado,
       title: 'Inicio de clases (todas las carreras, excepto Medicina)',
       start: DateTime(2025, 10, 13),
     ),
     CalendarEvent(
       category: CalendarCategory.posgrado,
+      title: 'Inicio de clases Programas Híbridas Intersedes - Paralelo Nacional',
+      start: DateTime(2025, 10, 13),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.posgrado,
+      title: 'Inicio de clases Programas Sede Manabí',
+      start: DateTime(2025, 10, 13),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.pucetecGrado,
+      title: 'Borrado (todas las carreras, excluido Medicina)',
+      start: DateTime(2025, 10, 13),
+      end: DateTime(2025, 10, 15),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.pucetecGrado,
+      title: 'Matrícula extraordinaria (todas las carreras, excepto Medicina)',
+      start: DateTime(2025, 10, 13),
+      end: DateTime(2025, 10, 24),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.posgrado,
+      title: 'Matrícula extraordinaria',
+      start: DateTime(2025, 10, 13),
+      end: DateTime(2025, 10, 24),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.posgrado,
       title: 'Evaluación docente',
       start: DateTime(2025, 10, 20),
-      end: DateTime(2026, 3, 20),
-      note: 'Rango largo (se muestra como período).',
+      end: DateTime(2026, 3, 20), // ⬅️ se recorta a 1 día por lógica
+    ),
+    CalendarEvent(
+      category: CalendarCategory.posgrado,
+      title: 'Registro de notas',
+      start: DateTime(2025, 10, 20),
+      end: DateTime(2026, 3, 20), // ⬅️ se recorta a 1 día por lógica
+    ),
+    CalendarEvent(
+      category: CalendarCategory.pucetecGrado,
+      title: 'Matrícula especial (Medicina)',
+      start: DateTime(2025, 10, 13),
+      end: DateTime(2025, 10, 24),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.pucetecGrado,
+      title: 'Matrícula especial (todas las carreras, excepto Medicina)',
+      start: DateTime(2025, 10, 27),
+      end: DateTime(2025, 11, 7),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.grado,
+      title: 'Borrado (Medicina)',
+      start: DateTime(2025, 10, 27),
+      end: DateTime(2025, 10, 31),
+    ),
+
+    // NOV 2025
+    CalendarEvent(
+      category: CalendarCategory.todos,
+      title: 'Semana Interdisciplinar',
+      start: DateTime(2025, 11, 5),
+      end: DateTime(2025, 11, 7),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.pucetecGrado,
+      title: 'Borrado (todas las carreras, excluido Medicina)',
+      start: DateTime(2025, 11, 10),
+      end: DateTime(2025, 11, 14),
+    ),
+
+    // DIC 2025
+    CalendarEvent(
+      category: CalendarCategory.todos,
+      title: 'Ceremonias de incorporación',
+      start: DateTime(2025, 11, 29),
+      end: DateTime(2025, 12, 14),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.pucetecGrado,
+      title: 'Evaluación docente 2025-2',
+      start: DateTime(2025, 12, 1),
+      end: DateTime(2026, 2, 20), // ⬅️ se recorta a 1 día por lógica
+    ),
+    CalendarEvent(
+      category: CalendarCategory.grado,
+      title: 'Examen final Octavo Semestre Enfermería',
+      start: DateTime(2025, 12, 19),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.todos,
+      title: 'Cierre de actividades académicas 2024',
+      start: DateTime(2025, 12, 19),
+    ),
+
+    // ENE 2026
+    CalendarEvent(
+      category: CalendarCategory.todos,
+      title: 'Vacaciones',
+      start: DateTime(2025, 12, 22),
+      end: DateTime(2026, 1, 1),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.todos,
+      title: 'Inicio de actividades académicas y administrativas',
+      start: DateTime(2026, 1, 2),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.grado,
+      title: 'Registro de notas Octavo Semestre Enfermería',
+      start: DateTime(2026, 1, 5),
+      end: DateTime(2026, 1, 9),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.grado,
+      title: 'Examen final Décimo Semestre Medicina',
+      start: DateTime(2026, 1, 12),
+      end: DateTime(2026, 1, 16),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.pucetecGrado,
+      title:
+          'Registro de aspirantes PAO 2026-1 (todas las carreras incluida Medicina)',
+      start: DateTime(2026, 1, 13),
+      end: DateTime(2026, 3, 28), // ⬅️ se recorta a 1 día por lógica
+    ),
+    CalendarEvent(
+      category: CalendarCategory.posgrado,
+      title: 'Registro de aspirantes PAO 2026-1',
+      start: DateTime(2026, 1, 13),
+      end: DateTime(2026, 4, 4), // ⬅️ se recorta a 1 día por lógica
+    ),
+    CalendarEvent(
+      category: CalendarCategory.grado,
+      title: 'Registro de notas Décimo Semestre Medicina',
+      start: DateTime(2026, 1, 19),
+      end: DateTime(2026, 1, 23),
+    ),
+    CalendarEvent(
+      category: CalendarCategory.pucetecGrado,
+      title:
+          'Primer examen de admisión general PAO 2026-1 (Beca Igualdad de Oportunidades)',
+      start: DateTime(2026, 1, 31),
     ),
   ];
 
@@ -86,18 +252,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
 
-    final filtered = _allEvents.where((e) {
-      final matchFilter = _filter == CalendarCategory.todos || e.category == _filter;
-      final matchQuery = _query.trim().isEmpty ||
-          e.title.toLowerCase().contains(_query.trim().toLowerCase());
+    // ✅ Aplica recorte de rangos excesivos antes de filtrar/mostrar
+    final normalized = _allEvents.map(_trimExcessiveRange).toList();
+
+    final filtered = normalized.where((e) {
+      final matchFilter =
+          _filter == CalendarCategory.all || e.category == _filter;
+      final q = _query.trim().toLowerCase();
+      final matchQuery = q.isEmpty || e.title.toLowerCase().contains(q);
       return matchFilter && matchQuery;
     }).toList()
       ..sort((a, b) => a.start.compareTo(b.start));
 
-    final grouped = _groupByMonth(filtered);
+    final grouped = _groupByMonthWithRanges(filtered);
 
     return Scaffold(
-      // 👇 Ya quitamos la AppBar del shell; aquí solo ponemos si quieres.
       appBar: AppBar(
         title: const Text('Calendario académico'),
         centerTitle: true,
@@ -109,15 +278,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
             onChanged: (v) => setState(() => _query = v),
           ),
           const SizedBox(height: 12),
-
           _FilterChips(
             selected: _filter,
             onChanged: (v) => setState(() => _filter = v),
             primary: primary,
           ),
-
           const SizedBox(height: 14),
-
           if (filtered.isEmpty)
             const _EmptyState()
           else
@@ -130,7 +296,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 children: [
                   _MonthHeader(monthKey: monthKey),
                   const SizedBox(height: 10),
-
                   ...events.map(
                     (e) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
@@ -141,7 +306,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 6),
                 ],
               );
@@ -151,19 +315,31 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Map<String, List<CalendarEvent>> _groupByMonth(List<CalendarEvent> events) {
-    // key: "AGO 2025", "SEPT 2025", etc
+  /// ✅ Si un evento cruza meses, aparece en cada mes tocado.
+  /// (OJO: ya recortamos rangos excesivos, así que no saturan la lista.)
+  Map<String, List<CalendarEvent>> _groupByMonthWithRanges(
+      List<CalendarEvent> events) {
     final map = <String, List<CalendarEvent>>{};
+
     for (final e in events) {
-      final key = _monthKey(e.start);
-      map.putIfAbsent(key, () => []);
-      map[key]!.add(e);
+      final start = _dateOnly(e.start);
+      final end = _dateOnly(e.end ?? e.start);
+
+      for (final m in _monthsTouched(start, end)) {
+        final key = _monthKey(m);
+        map.putIfAbsent(key, () => []);
+        map[key]!.add(e);
+      }
     }
+
+    for (final k in map.keys) {
+      map[k]!.sort((a, b) => a.start.compareTo(b.start));
+    }
+
     return map;
   }
 
   String _monthKey(DateTime d) {
-    // meses en español abreviados estilo tu captura (AGO, SEPT, OCT...)
     const months = {
       1: 'ENE',
       2: 'FEB',
@@ -183,9 +359,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   void _openEventBottomSheet(CalendarEvent e) {
     final df = DateFormat('dd MMM yyyy', 'es');
-    final dateText = e.end == null
-        ? df.format(e.start)
-        : '${df.format(e.start)} — ${df.format(e.end!)}';
+    final dateText = df.format(e.start); // ✅ solo una fecha
 
     showModalBottomSheet(
       context: context,
@@ -222,27 +396,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   Expanded(child: Text(dateText)),
                 ],
               ),
-              if (e.note != null && e.note!.trim().isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Text(
-                  e.note!,
-                  style: const TextStyle(color: Color(0xFF5B6472)),
-                ),
-              ],
               const SizedBox(height: 14),
-
-              // 🔔 Aquí luego conectamos notificaciones / agregar a calendario
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () {
+                      onPressed: () async {
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Luego: agregar recordatorio / notificación'),
-                          ),
-                        );
+                        await _scheduleReminderForEvent(e);
                       },
                       icon: const Icon(Icons.notifications_active_outlined),
                       label: const Text('Recordarme'),
@@ -251,13 +412,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () {
+                      onPressed: () async {
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Luego: exportar a calendario del dispositivo'),
-                          ),
-                        );
+                        await _addEventToDeviceCalendar(e);
                       },
                       icon: const Icon(Icons.calendar_month),
                       label: const Text('Agregar'),
@@ -272,6 +429,83 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
+  Future<void> _addEventToDeviceCalendar(CalendarEvent e) async {
+    // ✅ Ya que en UI dejamos solo una fecha para todo,
+    // lo agregamos como evento de día completo.
+    final start = DateTime(e.start.year, e.start.month, e.start.day, 0);
+    final end = DateTime(e.start.year, e.start.month, e.start.day, 23, 59);
+
+    final event = a2c.Event(
+      title: e.title,
+      description: _categoryLabel(e.category),
+      startDate: start,
+      endDate: end,
+      allDay: true,
+    );
+
+    try {
+      final ok = await a2c.Add2Calendar.addEvent2Cal(event);
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ok ? 'Evento agregado al calendario.' : 'No se pudo agregar el evento.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al intentar agregar al calendario.')),
+      );
+    }
+  }
+
+  Future<void> _scheduleReminderForEvent(CalendarEvent e) async {
+    final now = DateTime.now();
+
+    // ✅ Evento base (9am del día del evento)
+    final eventTime = DateTime(e.start.year, e.start.month, e.start.day, 9);
+
+    // Preferencia: 1 día antes a las 09:00.
+    final oneDayBefore = DateTime(e.start.year, e.start.month, e.start.day)
+        .subtract(const Duration(days: 1))
+        .add(const Duration(hours: 9));
+
+    DateTime when;
+    if (oneDayBefore.isAfter(now)) {
+      when = oneDayBefore;
+    } else {
+      // Si ya no se puede 1 día antes, intenta 1 hora antes.
+      final oneHourBefore = eventTime.subtract(const Duration(hours: 1));
+      when = oneHourBefore.isAfter(now)
+          ? oneHourBefore
+          : now.add(const Duration(seconds: 10)); // fallback
+    }
+
+    final tzWhen = tz.TZDateTime.from(when, tz.local);
+
+    // id estable por evento
+    final id = e.title.hashCode & 0x7FFFFFFF;
+
+    await NotificationService.scheduleReminder(
+      id: id,
+      title: 'Recordatorio PUCE',
+      body: e.title,
+      when: tzWhen,
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Recordatorio programado para ${DateFormat('dd/MM/yyyy HH:mm').format(when)}',
+        ),
+      ),
+    );
+  }
+
   String _categoryLabel(CalendarCategory c) {
     switch (c) {
       case CalendarCategory.grado:
@@ -281,6 +515,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
       case CalendarCategory.pucetecGrado:
         return 'PUCETEC/GRADO';
       case CalendarCategory.todos:
+        return 'TODOS';
+      case CalendarCategory.all:
         return 'TODOS';
     }
   }
@@ -342,7 +578,8 @@ class _FilterChips extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
-        chip(CalendarCategory.todos, 'Todos'),
+        chip(CalendarCategory.all, 'Todos'),
+        chip(CalendarCategory.todos, 'Institucional'),
         chip(CalendarCategory.grado, 'Grado'),
         chip(CalendarCategory.posgrado, 'Posgrado'),
         chip(CalendarCategory.pucetecGrado, 'PUCETEC/Grado'),
@@ -396,10 +633,9 @@ class _EventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final df = DateFormat('dd MMM', 'es');
-    final dateText = event.end == null
-        ? df.format(event.start)
-        : '${df.format(event.start)} — ${df.format(event.end!)}';
 
+    // ✅ Para la vista: solo mostrar un día (inicio)
+    final dateText = df.format(event.start);
     final cat = _label(event.category);
 
     return InkWell(
@@ -444,9 +680,10 @@ class _EventCard extends StatelessWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       _MiniPill(text: cat, color: primary),
-                      _MiniPill(text: dateText, color: const Color(0xFF5B6472)),
-                      if (event.isRange)
-                        _MiniPill(text: 'Período', color: const Color(0xFF5B6472)),
+                      _MiniPill(
+                        text: dateText,
+                        color: const Color(0xFF5B6472),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -478,6 +715,8 @@ class _EventCard extends StatelessWidget {
       case CalendarCategory.pucetecGrado:
         return 'PUCETEC/GRADO';
       case CalendarCategory.todos:
+        return 'TODOS';
+      case CalendarCategory.all:
         return 'TODOS';
     }
   }

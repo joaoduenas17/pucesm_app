@@ -7,48 +7,93 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_state.dart';
+import '../../services/notification_service.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _loading = true;
+
+  // Datos editables (persistidos)
+  String _name = 'Estudiante PUCE';
+  String _email = 'correo@puce.edu.ec';
+  String _program = 'Carrera • PUCE Manabí';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _name = prefs.getString('profile_name') ?? _name;
+      _email = prefs.getString('profile_email') ?? _email;
+      _program = prefs.getString('profile_program') ?? _program;
+      _loading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
 
-    // ⚠️ OJO: Para evitar doble AppBar, NO usamos Scaffold aquí
-    // (BottomNav ya tiene su propio Scaffold con AppBar)
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
-          _ProfileHeader(
-            imagePath: state.profileImagePath,
-            onChangePhoto: () => _openPhotoSheet(context),
-          ),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 18),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else
+            _ProfileHeader(
+              name: _name,
+              email: _email,
+              program: _program,
+              imagePath: state.profileImagePath,
+              onChangePhoto: () => _openPhotoSheet(context),
+            ),
+
           const SizedBox(height: 14),
 
           _SectionTitle(title: 'Cuenta'),
           const SizedBox(height: 10),
+
           _SettingTile(
             icon: Icons.edit,
             title: 'Editar perfil',
-            subtitle: 'Nombre, carrera, foto y datos personales',
-            onTap: () => _toast(context, 'Luego lo conectamos a edición real 😉'),
+            subtitle: 'Nombre, correo, carrera y datos básicos',
+            onTap: () async {
+              final changed = await context.push<bool>('/profile/edit');
+              if (changed == true) {
+                await _loadProfile();
+                if (mounted) _toast(context, 'Perfil actualizado ✅');
+              }
+            },
           ),
+
           _SettingTile(
             icon: Icons.lock_outline,
             title: 'Privacidad y seguridad',
-            subtitle: 'Contraseña, sesión y permisos',
-            onTap: () => _toast(context, 'Pendiente para siguiente iteración'),
+            subtitle: 'Notificaciones, permisos y controles',
+            onTap: () => context.push('/profile/security'),
           ),
 
           const SizedBox(height: 18),
           _SectionTitle(title: 'Preferencias'),
           const SizedBox(height: 10),
 
-          // Modo oscuro
           _SwitchTile(
             icon: Icons.dark_mode_outlined,
             title: 'Modo oscuro',
@@ -57,13 +102,11 @@ class ProfileScreen extends StatelessWidget {
             onChanged: (v) => context.read<AppState>().setDarkMode(v),
           ),
 
-          // Escala de texto
           _TextScaleTile(
             value: state.textScale,
             onChanged: (v) => context.read<AppState>().setTextScale(v),
           ),
 
-          // Reduce motion
           _SwitchTile(
             icon: Icons.motion_photos_off_outlined,
             title: 'Reducir animaciones',
@@ -79,8 +122,8 @@ class ProfileScreen extends StatelessWidget {
           _SettingTile(
             icon: Icons.help_outline,
             title: 'Ayuda',
-            subtitle: 'Preguntas frecuentes y soporte',
-            onTap: () => _toast(context, 'Aquí luego va un centro de ayuda'),
+            subtitle: 'Preguntas frecuentes y contacto',
+            onTap: () => _toast(context, 'Luego lo conectamos a un centro de ayuda 🙂'),
           ),
           _SettingTile(
             icon: Icons.info_outline,
@@ -89,9 +132,18 @@ class ProfileScreen extends StatelessWidget {
             onTap: () => _showAbout(context),
           ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
+          _SectionTitle(title: 'Enlaces oficiales'),
+          const SizedBox(height: 10),
+          _SocialLinksCard(
+            onOpenWeb: () => _openUrl('https://pucem.edu.ec/'),
+            onOpenFacebook: () => _openUrl('https://www.facebook.com/pucemanabi/'),
+            onOpenInstagram: () => _openUrl('https://www.instagram.com/pucemanabi/'),
+          ),
 
-          // ✅ Cerrar sesión REAL del EVA
+          const SizedBox(height: 16),
+
+          // Cerrar sesión EVA (real)
           _LogoutButton(
             onTap: () => _logoutEVA(context),
           ),
@@ -101,7 +153,7 @@ class ProfileScreen extends StatelessWidget {
   }
 
   // =========================
-  // FOTO PERFIL (sheet)
+  // FOTO PERFIL
   // =========================
   Future<void> _openPhotoSheet(BuildContext context) async {
     final state = context.read<AppState>();
@@ -122,7 +174,6 @@ class ProfileScreen extends StatelessWidget {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 12),
-
                 ListTile(
                   leading: const Icon(Icons.photo_library),
                   title: const Text('Elegir de galería'),
@@ -139,7 +190,6 @@ class ProfileScreen extends StatelessWidget {
                     await _pickAndSave(context, ImageSource.camera);
                   },
                 ),
-
                 if (hasPhoto)
                   ListTile(
                     leading: const Icon(Icons.delete_outline, color: Colors.red),
@@ -164,10 +214,8 @@ class ProfileScreen extends StatelessWidget {
       source: source,
       imageQuality: 85,
     );
-
     if (picked == null) return;
 
-    // Guardamos una copia en carpeta segura de la app (persiste)
     final dir = await getApplicationDocumentsDirectory();
     final ext = p.extension(picked.path).isEmpty ? '.jpg' : p.extension(picked.path);
     final fileName = 'profile_photo${ext.toLowerCase()}';
@@ -181,7 +229,7 @@ class ProfileScreen extends StatelessWidget {
   }
 
   // =========================
-  // LOGOUT EVA (real)
+  // LOGOUT EVA
   // =========================
   static Future<void> _logoutEVA(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
@@ -189,16 +237,22 @@ class ProfileScreen extends StatelessWidget {
 
     if (!context.mounted) return;
     _toast(context, 'Sesión cerrada');
-    context.go('/virtual'); // vuelve al login EVA
+    context.go('/virtual');
+  }
+
+  // =========================
+  // LINKS
+  // =========================
+  static Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   // =========================
   // UI helpers
   // =========================
   static void _toast(BuildContext context, String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   static void _showAbout(BuildContext context) {
@@ -212,10 +266,16 @@ class ProfileScreen extends StatelessWidget {
 }
 
 class _ProfileHeader extends StatelessWidget {
+  final String name;
+  final String email;
+  final String program;
   final String? imagePath;
   final VoidCallback onChangePhoto;
 
   const _ProfileHeader({
+    required this.name,
+    required this.email,
+    required this.program,
     required this.imagePath,
     required this.onChangePhoto,
   });
@@ -240,7 +300,6 @@ class _ProfileHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // ✅ Avatar con foto real + botón de editar
           Stack(
             children: [
               Container(
@@ -282,32 +341,30 @@ class _ProfileHeader extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(width: 12),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
-                  'Joao Dueñas',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  'joao.duenas@puce.edu.ec',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF64748B),
-                  ),
+                  email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                 ),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 Text(
-                  'Ingeniería de Software • PUCE Manabí',
-                  style: TextStyle(
+                  program,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
                     fontSize: 13,
                     height: 1.2,
                     color: Color(0xFF334155),
@@ -463,10 +520,7 @@ class _TextScaleTile extends StatelessWidget {
                 ),
                 Text(
                   '${(value * 100).round()}%',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: cs.primary,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.w800, color: cs.primary),
                 ),
               ],
             ),
@@ -485,6 +539,61 @@ class _TextScaleTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SocialLinksCard extends StatelessWidget {
+  final VoidCallback onOpenWeb;
+  final VoidCallback onOpenFacebook;
+  final VoidCallback onOpenInstagram;
+
+  const _SocialLinksCard({
+    required this.onOpenWeb,
+    required this.onOpenFacebook,
+    required this.onOpenInstagram,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    Widget iconBtn(IconData icon, String label, VoidCallback onTap) {
+      return Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              color: cs.primary.withOpacity(0.07),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: cs.primary.withOpacity(0.12)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: cs.primary),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        iconBtn(Icons.language, 'Web', onOpenWeb),
+        const SizedBox(width: 10),
+        iconBtn(Icons.facebook, 'Facebook', onOpenFacebook),
+        const SizedBox(width: 10),
+        iconBtn(Icons.camera_alt_outlined, 'Instagram', onOpenInstagram),
+      ],
     );
   }
 }

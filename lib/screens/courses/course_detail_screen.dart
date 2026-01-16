@@ -21,12 +21,18 @@ class CourseDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
 
+    // ✅ Cursos usan /courses/take/file/
     final cover = item.imageBackName.isNotEmpty
-        ? PucemApi.imageUri(item.imageBackName).toString()
-        : (item.imageName.isNotEmpty ? PucemApi.imageUri(item.imageName).toString() : null);
+        ? PucemApi.courseImageUri(item.imageBackName).toString()
+        : (item.imageName.isNotEmpty
+            ? PucemApi.courseImageUri(item.imageName).toString()
+            : null);
 
     final hasPdf = item.pdfName.isNotEmpty;
-    final pdfUrl = hasPdf ? PucemApi.fileUri(item.pdfName).toString() : null;
+
+    // ✅ PDFs de cursos usan /courses/take/file/
+    final pdfUrl =
+        hasPdf ? PucemApi.courseFileUri(item.pdfName).toString() : null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Detalle')),
@@ -83,9 +89,15 @@ class CourseDetailScreen extends StatelessWidget {
               if (item.modality.isNotEmpty)
                 _Chip(icon: Icons.school, label: item.modality, color: primary),
               if (item.resolution.isNotEmpty)
-                _Chip(icon: Icons.verified_outlined, label: item.resolution, color: primary),
+                _Chip(
+                    icon: Icons.verified_outlined,
+                    label: item.resolution,
+                    color: primary),
               if (item.price > 0)
-                _Chip(icon: Icons.payments_outlined, label: '\$${item.price.toStringAsFixed(2)}', color: primary),
+                _Chip(
+                    icon: Icons.payments_outlined,
+                    label: '\$${item.price.toStringAsFixed(2)}',
+                    color: primary),
             ],
           ),
 
@@ -147,8 +159,6 @@ class _HtmlCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       child: Html(
         data: html,
-        // Si el HTML trae iframes (YouTube), flutter_html no siempre los renderiza;
-        // pero no rompe. Si quieres, luego hacemos soporte extra (webview).
       ),
     );
   }

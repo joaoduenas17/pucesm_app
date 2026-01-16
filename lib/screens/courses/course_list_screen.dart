@@ -65,8 +65,10 @@ class _CourseListScreenState extends State<CourseListScreen> {
               separatorBuilder: (_, __) => const SizedBox(height: 14),
               itemBuilder: (context, i) {
                 final c = items[i];
+
+                // ✅ Cursos usan /courses/take/file/
                 final img = c.imageName.isNotEmpty
-                    ? PucemApi.imageUri(c.imageName).toString()
+                    ? PucemApi.courseImageUri(c.imageName).toString()
                     : null;
 
                 return InkWell(
@@ -128,7 +130,8 @@ class _CourseListScreenState extends State<CourseListScreen> {
                               if (c.modality.isNotEmpty)
                                 Row(
                                   children: [
-                                    Icon(Icons.school, size: 16, color: primary),
+                                    Icon(Icons.school,
+                                        size: 16, color: primary),
                                     const SizedBox(width: 6),
                                     Text(
                                       c.modality,

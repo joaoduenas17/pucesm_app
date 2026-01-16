@@ -9,6 +9,7 @@ import '../screens/home/home_screen.dart';
 import '../screens/calendar/calendar_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/edit_profile_screen.dart';
+import '../screens/profile/privacy_security_screen.dart'; // ✅ NUEVO
 
 // Entorno Virtual (WebView / in-app browser)
 import '../screens/virtual/virtual_screen.dart';
@@ -64,6 +65,10 @@ class AppRouter {
           GoRoute(
             path: '/profile/edit',
             builder: (context, state) => const EditProfileScreen(),
+          ),
+          GoRoute(
+            path: '/profile/security', // ✅ NUEVO
+            builder: (context, state) => const PrivacySecurityScreen(),
           ),
 
           // ======================
