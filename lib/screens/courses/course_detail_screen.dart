@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../models/course_item.dart';
 import '../../services/pucem_api.dart';
@@ -10,10 +14,42 @@ class CourseDetailScreen extends StatelessWidget {
 
   const CourseDetailScreen({super.key, required this.item});
 
-  Future<void> _openExternal(String url) async {
-    final uri = Uri.parse(url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      throw Exception('No se pudo abrir: $url');
+  // =========================
+  // ✅ DESCARGAR Y ABRIR PDF LOCAL
+  // =========================
+  Future<void> _downloadAndOpenPdf(BuildContext context, String fileName) async {
+    final scaffold = ScaffoldMessenger.of(context);
+
+    try {
+      scaffold.showSnackBar(
+        const SnackBar(content: Text('Descargando PDF...')),
+      );
+
+      final uri = PucemApi.courseFileUri(fileName);
+
+      final res = await http.get(
+        uri,
+        headers: PucemApi.defaultHeaders(isFile: true),
+      );
+
+      if (res.statusCode != 200) {
+        throw Exception('HTTP ${res.statusCode}');
+      }
+
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$fileName');
+
+      await file.writeAsBytes(res.bodyBytes);
+
+      await OpenFilex.open(file.path);
+
+      scaffold.showSnackBar(
+        const SnackBar(content: Text('PDF abierto correctamente.')),
+      );
+    } catch (e) {
+      scaffold.showSnackBar(
+        SnackBar(content: Text('No se pudo abrir el PDF: $e')),
+      );
     }
   }
 
@@ -21,7 +57,6 @@ class CourseDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
 
-    // ✅ Cursos usan /courses/take/file/
     final cover = item.imageBackName.isNotEmpty
         ? PucemApi.courseImageUri(item.imageBackName).toString()
         : (item.imageName.isNotEmpty
@@ -29,10 +64,6 @@ class CourseDetailScreen extends StatelessWidget {
             : null);
 
     final hasPdf = item.pdfName.isNotEmpty;
-
-    // ✅ PDFs de cursos usan /courses/take/file/
-    final pdfUrl =
-        hasPdf ? PucemApi.courseFileUri(item.pdfName).toString() : null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Detalle')),
@@ -101,10 +132,14 @@ class CourseDetailScreen extends StatelessWidget {
             ],
           ),
 
+          // =========================
+          // ✅ BOTÓN PDF PRO
+          // =========================
           if (hasPdf) ...[
             const SizedBox(height: 14),
             ElevatedButton.icon(
-              onPressed: () => _openExternal(pdfUrl!),
+              onPressed: () =>
+                  _downloadAndOpenPdf(context, item.pdfName),
               icon: const Icon(Icons.picture_as_pdf),
               label: const Text('Abrir PDF'),
             ),
@@ -112,7 +147,6 @@ class CourseDetailScreen extends StatelessWidget {
 
           const SizedBox(height: 18),
 
-          // ====== HTML: Description ======
           if (item.descriptionHtml.trim().isNotEmpty) ...[
             const Text(
               'Descripción',
@@ -123,7 +157,6 @@ class CourseDetailScreen extends StatelessWidget {
             const SizedBox(height: 18),
           ],
 
-          // ====== HTML: Study plan ======
           if (item.studyPlanHtml.trim().isNotEmpty) ...[
             const Text(
               'Plan de estudios',
@@ -157,9 +190,7 @@ class _HtmlCard extends StatelessWidget {
         ],
       ),
       padding: const EdgeInsets.all(14),
-      child: Html(
-        data: html,
-      ),
+      child: Html(data: html),
     );
   }
 }

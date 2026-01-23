@@ -33,6 +33,7 @@ dependencies:
   add_2_calendar: ^3.0.1
   flutter_local_notifications: ^17.2.2
   timezone: ^0.9.4
+  open_filex: ^4.5.0
   flutter_localizations:
     sdk: flutter
 

@@ -640,7 +640,7 @@ class _LogoutButton extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: onTap,
       icon: Icon(Icons.logout, color: cs.primary),
-      label: const Text('Cerrar sesión'),
+      label: const Text('Cerrar sesión EVA'),
     );
   }
 }

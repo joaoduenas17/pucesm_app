@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 // Splash
 import '../screens/splash/splash_screen.dart';
 
+// ✅ Onboarding (nuevo)
+import '../screens/onboarding/onboarding_screen.dart';
+
 // App pública
 import '../screens/home/home_screen.dart';
 import '../screens/calendar/calendar_screen.dart';
@@ -11,7 +14,7 @@ import '../screens/profile/profile_screen.dart';
 import '../screens/profile/edit_profile_screen.dart';
 import '../screens/profile/privacy_security_screen.dart';
 
-// ✅ NUEVO: Centro de ayuda
+// ✅ Centro de ayuda
 import '../screens/help/help_center_screen.dart';
 
 // Entorno Virtual (WebView / in-app browser)
@@ -43,7 +46,15 @@ class AppRouter {
       ),
 
       // ======================
-      // App principal
+      // ✅ Onboarding (sin BottomNav)
+      // ======================
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingScreen(),
+      ),
+
+      // ======================
+      // App principal (con BottomNav)
       // ======================
       ShellRoute(
         builder: (context, state, child) => BottomNav(child: child),
@@ -71,13 +82,10 @@ class AppRouter {
           ),
 
           // ✅ Privacidad y seguridad
-          // (mantengo tu path actual /profile/security)
           GoRoute(
             path: '/profile/security',
             builder: (context, state) => const PrivacySecurityScreen(),
           ),
-
-          // ✅ Alias opcional (por si en algún lado lo llamas así)
           GoRoute(
             path: '/profile/privacy',
             builder: (context, state) => const PrivacySecurityScreen(),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -32,11 +33,20 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    // Tiempo total en splash (ajústalo si quieres)
-    Future.delayed(const Duration(milliseconds: 1300), () {
-      if (!mounted) return;
-      context.go('/'); // tu Home está en '/'
-    });
+    _goNext();
+  }
+
+  Future<void> _goNext() async {
+    // Tiempo total en splash (mantengo tu timing)
+    await Future.delayed(const Duration(milliseconds: 1300));
+
+    final prefs = await SharedPreferences.getInstance();
+    final done = prefs.getBool('onboarding_done') ?? false;
+
+    if (!mounted) return;
+
+    // ✅ Si ya configuró, entra a Home. Si no, va al onboarding.
+    context.go(done ? '/' : '/onboarding');
   }
 
   @override
