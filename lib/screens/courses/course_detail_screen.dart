@@ -79,7 +79,7 @@ class CourseDetailScreen extends StatelessWidget {
                 child: Image.network(
                   cover,
                   fit: BoxFit.cover,
-                  headers: PucemApi.defaultHeaders(isImage: true),
+                  headers: PucemApi.defaultHeaders(isImage: true, legacy: true),
                   errorBuilder: (_, __, ___) => Container(
                     color: const Color(0xFFF1F4FA),
                     child: const Center(child: Icon(Icons.image_not_supported)),

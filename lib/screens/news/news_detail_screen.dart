@@ -109,7 +109,7 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
                       child: Image.network(
                         imgUrl,
                         fit: BoxFit.cover,
-                        headers: PucemApi.defaultHeaders(isImage: true),
+                        headers: PucemApi.defaultHeaders(isImage: true, legacy: true),
                         loadingBuilder: (context, child, progress) {
                           if (progress == null) return child;
                           return Container(

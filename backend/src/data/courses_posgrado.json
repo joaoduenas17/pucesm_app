@@ -1,0 +1,47 @@
+[
+  {
+    "slug": "maestria-direccion-empresas",
+    "type": "posgrado",
+    "title": "Maestría en Dirección de Empresas",
+    "predescription": "Gestión estratégica, liderazgo y toma de decisiones para organizaciones.",
+    "modality": "Híbrida",
+    "resolution": "Aprobada",
+    "price": 0,
+    "imageName": "",
+    "imageBackName": "",
+    "pdfName": "",
+    "webUrl": "https://pucem.edu.ec/",
+    "descriptionHtml": "<p>Enfocada en dirección, estrategia y gestión del cambio.</p>",
+    "studyPlanHtml": "<ul><li>Estrategia</li><li>Finanzas gerenciales</li><li>Liderazgo</li><li>Innovación</li></ul>"
+  },
+  {
+    "slug": "maestria-innovacion-educativa",
+    "type": "posgrado",
+    "title": "Maestría en Innovación Educativa",
+    "predescription": "Metodologías activas, evaluación, tecnología y diseño instruccional.",
+    "modality": "Híbrida",
+    "resolution": "Aprobada",
+    "price": 0,
+    "imageName": "",
+    "imageBackName": "",
+    "pdfName": "",
+    "webUrl": "https://pucem.edu.ec/",
+    "descriptionHtml": "<p>Diseño de experiencias educativas innovadoras basadas en evidencia.</p>",
+    "studyPlanHtml": "<ul><li>Didáctica</li><li>Evaluación</li><li>EdTech</li><li>Investigación</li></ul>"
+  },
+  {
+    "slug": "maestria-salud-publica",
+    "type": "posgrado",
+    "title": "Maestría en Salud Pública",
+    "predescription": "Epidemiología, gestión y políticas para mejorar salud poblacional.",
+    "modality": "Presencial",
+    "resolution": "Aprobada",
+    "price": 0,
+    "imageName": "",
+    "imageBackName": "",
+    "pdfName": "",
+    "webUrl": "https://pucem.edu.ec/",
+    "descriptionHtml": "<p>Enfoque en prevención, vigilancia y gestión de servicios.</p>",
+    "studyPlanHtml": "<ul><li>Epidemiología</li><li>Bioestadística</li><li>Gestión</li></ul>"
+  }
+]

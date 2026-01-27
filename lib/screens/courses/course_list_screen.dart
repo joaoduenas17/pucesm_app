@@ -108,7 +108,7 @@ class _CourseListScreenState extends State<CourseListScreen> {
                             child: Image.network(
                               img,
                               fit: BoxFit.cover,
-                              headers: PucemApi.defaultHeaders(isImage: true),
+                              headers: PucemApi.defaultHeaders(isImage: true, legacy: true),
                               errorBuilder: (_, __, ___) => const Center(
                                 child: Icon(Icons.image_not_supported),
                               ),

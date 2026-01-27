@@ -1,0 +1,8 @@
+{
+  "defaults": {
+    "notif_news": true,
+    "notif_calendar_enabled": true,
+    "notif_calendar_only_my_level": true,
+    "notif_calendar_include_institutional": true
+  }
+}

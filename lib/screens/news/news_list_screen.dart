@@ -184,7 +184,7 @@ class _NewsCard extends StatelessWidget {
                     child: Image.network(
                       imageUrl!,
                       fit: BoxFit.cover,
-                      headers: PucemApi.defaultHeaders(isImage: true), // ✅
+                      headers: PucemApi.defaultHeaders(isImage: true, legacy: true), // ✅
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
                         return const Center(
