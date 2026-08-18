@@ -8,11 +8,7 @@ class CourseListScreen extends StatefulWidget {
   final int type; // 1 = Grado | 2 = Posgrado
   final String title;
 
-  const CourseListScreen({
-    super.key,
-    required this.type,
-    required this.title,
-  });
+  const CourseListScreen({super.key, required this.type, required this.title});
 
   @override
   State<CourseListScreen> createState() => _CourseListScreenState();
@@ -34,7 +30,8 @@ class _CourseListScreenState extends State<CourseListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    final cs = Theme.of(context).colorScheme;
+    final primary = cs.primary;
 
     return Scaffold(
       appBar: AppBar(
@@ -74,7 +71,7 @@ class _CourseListScreenState extends State<CourseListScreen> {
             child: ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 14),
+              separatorBuilder: (_, _) => const SizedBox(height: 14),
               itemBuilder: (context, i) {
                 final c = items[i];
 
@@ -88,7 +85,7 @@ class _CourseListScreenState extends State<CourseListScreen> {
                   onTap: () => context.push('/courses/detail', extra: c),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: cs.surface,
                       borderRadius: BorderRadius.circular(18),
                       boxShadow: const [
                         BoxShadow(
@@ -109,7 +106,7 @@ class _CourseListScreenState extends State<CourseListScreen> {
                               img,
                               fit: BoxFit.cover,
                               headers: PucemApi.defaultHeaders(isImage: true),
-                              errorBuilder: (_, __, ___) => const Center(
+                              errorBuilder: (_, _, _) => const Center(
                                 child: Icon(Icons.image_not_supported),
                               ),
                             ),
@@ -132,9 +129,9 @@ class _CourseListScreenState extends State<CourseListScreen> {
                                   c.predescription,
                                   maxLines: 3,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 13,
-                                    color: Color(0xFF5B6472),
+                                    color: cs.onSurfaceVariant,
                                   ),
                                 ),
                               ],
@@ -142,7 +139,11 @@ class _CourseListScreenState extends State<CourseListScreen> {
                               if (c.modality.isNotEmpty)
                                 Row(
                                   children: [
-                                    Icon(Icons.school, size: 16, color: primary),
+                                    Icon(
+                                      Icons.school,
+                                      size: 16,
+                                      color: primary,
+                                    ),
                                     const SizedBox(width: 6),
                                     Text(
                                       c.modality,
@@ -177,6 +178,7 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -190,7 +192,7 @@ class _ErrorState extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF5B6472)),
+              style: TextStyle(color: cs.onSurfaceVariant),
             ),
             const SizedBox(height: 14),
             ElevatedButton.icon(

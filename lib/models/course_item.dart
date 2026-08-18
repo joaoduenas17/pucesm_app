@@ -15,12 +15,17 @@ class CourseAccordion {
 
   factory CourseAccordion.fromJson(Map<String, dynamic> json) {
     return CourseAccordion(
-      id: (json['id'] as num?)?.toInt() ?? 0,
-      courseId: (json['id_course'] as num?)?.toInt() ?? 0,
+      id: _asInt(json['id']),
+      courseId: _asInt(json['id_course']),
       title: (json['title'] ?? '').toString(),
       descriptionHtml: (json['description'] ?? '').toString(),
       icon: (json['icon'] ?? '').toString(),
     );
+  }
+
+  static int _asInt(dynamic value) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 }
 
@@ -118,17 +123,29 @@ class CourseItem {
     return double.tryParse(v?.toString() ?? '') ?? 0.0;
   }
 
+  static int _asInt(dynamic value) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static bool _asBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final normalized = value?.toString().trim().toLowerCase();
+    return normalized == 'true' || normalized == '1';
+  }
+
   factory CourseItem.fromJson(Map<String, dynamic> json) {
     final accRaw = json['acordions_course'];
     final acc = (accRaw is List)
         ? accRaw
-            .whereType<Map<String, dynamic>>()
-            .map(CourseAccordion.fromJson)
-            .toList()
+              .whereType<Map<String, dynamic>>()
+              .map(CourseAccordion.fromJson)
+              .toList()
         : <CourseAccordion>[];
 
     return CourseItem(
-      id: (json['id'] as num?)?.toInt() ?? 0,
+      id: _asInt(json['id']),
       title: (json['title'] ?? '').toString(),
       predescription: (json['predescription'] ?? '').toString(),
       descriptionHtml: (json['description'] ?? '').toString(),
@@ -136,15 +153,16 @@ class CourseItem {
       imageName: (json['imagen'] ?? '').toString(),
       imageBackName: (json['imagenback'] ?? '').toString(),
       video: (json['video'] ?? '').toString(),
-      views: (json['views'] as num?)?.toInt() ?? 0,
-      idType: (json['id_type'] as num?)?.toInt() ?? 0,
+      views: _asInt(json['views']),
+      idType: _asInt(json['id_type']),
       typeName: (json['typename'] ?? '').toString(),
       duration: (json['duration'] ?? '').toString(),
       modality: (json['modality'] ?? '').toString(),
       resolution: (json['resolution'] ?? '').toString(),
       pdfName: (json['pdf'] ?? '').toString(),
       calendarPdfName: (json['calendar_pdf'] ?? '').toString(),
-      mallaRepotenciadaPdfName: (json['malla_repotenciada_pdf'] ?? '').toString(),
+      mallaRepotenciadaPdfName: (json['malla_repotenciada_pdf'] ?? '')
+          .toString(),
       price: _asDouble(json['price']),
       routeRedirection: (json['route_redirection'] ?? '').toString(),
       urlSlug: (json['url'] ?? '').toString(),
@@ -152,7 +170,7 @@ class CourseItem {
       contactHtml: (json['contact'] ?? '').toString(),
       obtainedTitleHtml: (json['obtained_title'] ?? '').toString(),
       extraDataHtml: (json['extra_data'] ?? '').toString(),
-      active: (json['active'] as bool?) ?? false,
+      active: _asBool(json['active']),
       accordions: acc,
       dateCreated: _parseDate(json['date_created']),
       dateUpdated: _parseDate(json['date_updated']),

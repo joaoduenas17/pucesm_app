@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 import 'app/app_router.dart';
 import 'app/app_state.dart';
@@ -14,9 +15,15 @@ Future<void> main() async {
 
   // ✅ Timezones (necesario para programar notificaciones con hora exacta)
   tzdata.initializeTimeZones();
+  tz.setLocalLocation(tz.getLocation('America/Guayaquil'));
 
-  // ✅ Notificaciones locales (Recordarme)
-  await NotificationService.init();
+  // La app sigue disponible aunque el servicio nativo no pueda inicializarse.
+  try {
+    await NotificationService.init();
+  } catch (error, stackTrace) {
+    debugPrint('No se pudieron inicializar las notificaciones: $error');
+    debugPrintStack(stackTrace: stackTrace);
+  }
 
   // ✅ Intl para meses/días en español (Calendar)
   await initializeDateFormatting('es_EC', null);
@@ -45,11 +52,7 @@ class MyApp extends StatelessWidget {
 
       // ✅ Locales
       locale: const Locale('es', 'EC'),
-      supportedLocales: const [
-        Locale('es', 'EC'),
-        Locale('es'),
-        Locale('en'),
-      ],
+      supportedLocales: const [Locale('es', 'EC'), Locale('es'), Locale('en')],
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -70,10 +73,7 @@ class MyApp extends StatelessWidget {
           disableAnimations: state.reduceMotion,
         );
 
-        return MediaQuery(
-          data: fixed,
-          child: child ?? const SizedBox.shrink(),
-        );
+        return MediaQuery(data: fixed, child: child ?? const SizedBox.shrink());
       },
     );
   }

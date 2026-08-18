@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 
-enum StudyLevel { grado, posgrado }
+import '../../app/app_state.dart';
+import '../../data/study_programs.dart';
+import '../../models/user_profile.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -16,48 +18,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
 
-  bool _loading = true;
   bool _saving = false;
+  bool _initialized = false;
 
   StudyLevel _level = StudyLevel.grado;
   String? _selectedProgram;
 
-  // ✅ LISTA REAL (Grado) - basada en lo que me pasaste
-  static const List<String> _gradoPrograms = [
-    'Administración de Empresas',
-    'Arquitectura',
-    'Biología Marina',
-    'Derecho',
-    'Diseño Gráfico',
-    'Enfermería',
-    'Fisioterapia',
-    'Ingeniería Civil',
-    'Ingeniería en Alimentos',
-    'Medicina',
-    'Negocios Internacionales',
-    'Nutrición y Dietética',
-    'Psicología Clínica',
-    'Software',
-  ];
-
-  // ✅ Posgrado: deja tu lista actual (luego me pasas la real y la cambiamos)
-  static const List<String> _posgradoPrograms = [
-    'Especialización en Salud y Seguridad Ocupacional',
-    'Maestría en Derecho Constitucional',
-    'Maestría en Derecho Penal',
-    'Maestría en Geotecnia Aplicada',
-    'Maestría en Hidráulica mención Gestión de Recursos Hídricos',
-    'Maestría en Ingeniería Civil mención Estructuras Sismorresistentes',
-    'Maestría en Innovación en Educación'
-  ];
-
-  List<String> get _currentPrograms =>
-      _level == StudyLevel.grado ? _gradoPrograms : _posgradoPrograms;
+  List<String> get _currentPrograms => StudyPrograms.forLevel(_level);
 
   @override
-  void initState() {
-    super.initState();
-    _load();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+
+    final state = context.read<AppState>();
+    _nameCtrl.text = state.profileName;
+    _emailCtrl.text = state.profileEmail;
+    _level = state.studyLevel;
+    _selectedProgram = _currentPrograms.contains(state.profileProgram)
+        ? state.profileProgram
+        : StudyPrograms.defaultFor(_level);
+    _initialized = true;
   }
 
   @override
@@ -65,28 +46,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     super.dispose();
-  }
-
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    _nameCtrl.text = prefs.getString('profile_name') ?? 'Estudiante PUCE';
-    _emailCtrl.text = prefs.getString('profile_email') ?? 'correo@puce.edu.ec';
-
-    final levelStr = prefs.getString('profile_level') ?? 'grado';
-    _level = levelStr == 'posgrado' ? StudyLevel.posgrado : StudyLevel.grado;
-
-    final savedProgram = prefs.getString('profile_program');
-    final programs = _currentPrograms;
-
-    if (savedProgram != null && programs.contains(savedProgram)) {
-      _selectedProgram = savedProgram;
-    } else {
-      _selectedProgram = programs.isNotEmpty ? programs.first : null;
-    }
-
-    if (!mounted) return;
-    setState(() => _loading = false);
   }
 
   Future<void> _save() async {
@@ -102,18 +61,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     setState(() => _saving = true);
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('profile_name', _nameCtrl.text.trim());
-    await prefs.setString('profile_email', _emailCtrl.text.trim());
-    await prefs.setString(
-      'profile_level',
-      _level == StudyLevel.grado ? 'grado' : 'posgrado',
+    await context.read<AppState>().updateProfile(
+      fullName: _nameCtrl.text,
+      email: _emailCtrl.text,
+      level: _level,
+      program: _selectedProgram!,
     );
-    await prefs.setString('profile_program', _selectedProgram!);
 
     if (!mounted) return;
     setState(() => _saving = false);
-    Navigator.pop(context, true); // ✅ para que Profile pueda refrescar
+    Navigator.pop(context, true);
   }
 
   void _onLevelChanged(StudyLevel? value) {
@@ -131,142 +88,137 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Editar perfil')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Text(
+              'Configura tus preferencias para personalizar el contenido mostrado en la aplicación.',
+              style: TextStyle(color: cs.onSurfaceVariant, height: 1.25),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          Form(
+            key: _formKey,
+            child: Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F4FA),
-                    borderRadius: BorderRadius.circular(18),
+                TextFormField(
+                  controller: _nameCtrl,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre completo',
+                    prefixIcon: Icon(Icons.person_outline),
                   ),
-                  child: const Text(
-                    'Configura tus preferencias para personalizar el contenido mostrado en la aplicación.',
-                    style: TextStyle(color: Color(0xFF5B6472), height: 1.25),
-                  ),
+                  validator: (v) {
+                    final t = (v ?? '').trim();
+                    if (t.isEmpty) return 'Ingresa un nombre';
+                    if (t.length < 3) return 'Nombre demasiado corto';
+                    return null;
+                  },
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
 
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      TextFormField(
-                        controller: _nameCtrl,
-                        textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: 'Nombre completo',
-                          prefixIcon: Icon(Icons.person_outline),
+                TextFormField(
+                  controller: _emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Correo',
+                    prefixIcon: Icon(Icons.email_outlined),
+                  ),
+                  validator: (v) {
+                    final t = (v ?? '').trim();
+                    if (t.isEmpty) return 'Ingresa un correo';
+                    if (!t.contains('@')) return 'Correo no válido';
+                    return null;
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                const _BlockTitle(title: 'Nivel'),
+                const SizedBox(height: 10),
+
+                _LevelSelector(value: _level, onChanged: _onLevelChanged),
+
+                const SizedBox(height: 16),
+
+                _BlockTitle(
+                  title: _level == StudyLevel.grado
+                      ? 'Carrera (Grado)'
+                      : 'Programa (Posgrado)',
+                ),
+                const SizedBox(height: 10),
+
+                // ✅ FIX OVERFLOW: isExpanded + selectedItemBuilder
+                DropdownButtonFormField<String>(
+                  key: ValueKey(_level),
+                  initialValue: _selectedProgram,
+                  isExpanded: true, // ✅ CLAVE para que no se desborde
+                  items: _currentPrograms
+                      .map(
+                        (p) => DropdownMenuItem<String>(
+                          value: p,
+                          child: Text(p, overflow: TextOverflow.ellipsis),
                         ),
-                        validator: (v) {
-                          final t = (v ?? '').trim();
-                          if (t.isEmpty) return 'Ingresa un nombre';
-                          if (t.length < 3) return 'Nombre demasiado corto';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-
-                      TextFormField(
-                        controller: _emailCtrl,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: 'Correo',
-                          prefixIcon: Icon(Icons.email_outlined),
+                      )
+                      .toList(),
+                  selectedItemBuilder: (context) {
+                    return _currentPrograms.map((p) {
+                      return Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          p,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        validator: (v) {
-                          final t = (v ?? '').trim();
-                          if (t.isEmpty) return 'Ingresa un correo';
-                          if (!t.contains('@')) return 'Correo no válido';
-                          return null;
-                        },
-                      ),
+                      );
+                    }).toList();
+                  },
+                  onChanged: (v) => setState(() => _selectedProgram = v),
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.school_outlined),
+                    labelText: 'Seleccionar',
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Selecciona una opción';
+                    }
+                    return null;
+                  },
+                ),
 
-                      const SizedBox(height: 16),
+                const SizedBox(height: 18),
 
-                      const _BlockTitle(title: 'Nivel'),
-                      const SizedBox(height: 10),
-
-                      _LevelSelector(
-                        value: _level,
-                        onChanged: _onLevelChanged,
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      _BlockTitle(
-                        title: _level == StudyLevel.grado
-                            ? 'Carrera (Grado)'
-                            : 'Programa (Posgrado)',
-                      ),
-                      const SizedBox(height: 10),
-
-                      // ✅ FIX OVERFLOW: isExpanded + selectedItemBuilder
-                      DropdownButtonFormField<String>(
-                        value: _selectedProgram,
-                        isExpanded: true, // ✅ CLAVE para que no se desborde
-                        items: _currentPrograms
-                            .map(
-                              (p) => DropdownMenuItem<String>(
-                                value: p,
-                                child: Text(
-                                  p,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        selectedItemBuilder: (context) {
-                          return _currentPrograms.map((p) {
-                            return Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                p,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            );
-                          }).toList();
-                        },
-                        onChanged: (v) => setState(() => _selectedProgram = v),
-                        decoration: const InputDecoration(
-                          prefixIcon: Icon(Icons.school_outlined),
-                          labelText: 'Seleccionar',
-                        ),
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) {
-                            return 'Selecciona una opción';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 18),
-
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _saving ? null : _save,
-                          icon: _saving
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.save_outlined),
-                          label: Text(_saving ? 'Guardando...' : 'Guardar cambios'),
-                        ),
-                      ),
-                    ],
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _saving ? null : _save,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save_outlined),
+                    label: Text(_saving ? 'Guardando...' : 'Guardar cambios'),
                   ),
                 ),
               ],
             ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -286,7 +238,7 @@ class _BlockTitle extends StatelessWidget {
           fontSize: 13,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.4,
-          color: cs.primary.withOpacity(0.9),
+          color: cs.primary.withValues(alpha: 0.9),
         ),
       ),
     );
@@ -297,10 +249,7 @@ class _LevelSelector extends StatelessWidget {
   final StudyLevel value;
   final ValueChanged<StudyLevel?> onChanged;
 
-  const _LevelSelector({
-    required this.value,
-    required this.onChanged,
-  });
+  const _LevelSelector({required this.value, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -319,22 +268,28 @@ class _LevelSelector extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
-              color: active ? cs.primary.withOpacity(0.14) : Colors.white,
+              color: active ? cs.primary.withValues(alpha: 0.14) : cs.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: active ? cs.primary.withOpacity(0.45) : const Color(0x1A000000),
+                color: active
+                    ? cs.primary.withValues(alpha: 0.45)
+                    : cs.outlineVariant,
               ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 18, color: active ? cs.primary : const Color(0xFF5B6472)),
+                Icon(
+                  icon,
+                  size: 18,
+                  color: active ? cs.primary : cs.onSurfaceVariant,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   label,
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    color: active ? cs.primary : const Color(0xFF5B6472),
+                    color: active ? cs.primary : cs.onSurfaceVariant,
                   ),
                 ),
               ],

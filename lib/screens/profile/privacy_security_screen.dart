@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../app/app_state.dart';
+import '../../app/preference_keys.dart';
+import '../../models/user_profile.dart';
 import '../../services/notification_service.dart';
 
 class PrivacySecurityScreen extends StatefulWidget {
@@ -14,7 +19,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   bool _loading = true;
 
   // ✅ Switch maestro
-  bool _masterNotifs = true;
+  bool _masterNotifs = false;
 
   // Módulos
   bool _newsNotifs = true;
@@ -33,19 +38,22 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
 
+    if (!mounted) return;
     setState(() {
-      _masterNotifs = prefs.getBool('privacy_notifications') ?? true;
+      _masterNotifs =
+          prefs.getBool(PreferenceKeys.masterNotifications) ?? false;
 
-      // ✅ Compatibilidad: si existe notif_news_enabled úsalo, sino notif_news
-      _newsNotifs = prefs.getBool('notif_news_enabled') ??
-          prefs.getBool('notif_news') ??
+      _newsNotifs =
+          prefs.getBool(PreferenceKeys.newsNotifications) ??
+          prefs.getBool(PreferenceKeys.legacyNewsNotifications) ??
           true;
 
-      _calendarNotifs = prefs.getBool('notif_calendar_enabled') ?? true;
+      _calendarNotifs =
+          prefs.getBool(PreferenceKeys.calendarNotifications) ?? true;
       _calendarOnlyMyLevel =
-          prefs.getBool('notif_calendar_only_my_level') ?? true;
+          prefs.getBool(PreferenceKeys.calendarOnlyMyLevel) ?? true;
 
-      _profileLevel = prefs.getString('profile_level') ?? 'grado';
+      _profileLevel = context.read<AppState>().studyLevel.storageValue;
 
       _loading = false;
     });
@@ -58,15 +66,29 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
 
   // ✅ Guardamos ambos keys para evitar inconsistencias con pantallas anteriores
   Future<void> _setNewsEnabled(bool value) async {
-    await _setBool('notif_news_enabled', value);
-    await _setBool('notif_news', value); // compat
+    await _setBool(PreferenceKeys.newsNotifications, value);
+    await _setBool(PreferenceKeys.legacyNewsNotifications, value);
   }
 
   Future<void> _toggleMaster(bool v) async {
     setState(() => _masterNotifs = v);
-    await _setBool('privacy_notifications', v);
+    await _setBool(PreferenceKeys.masterNotifications, v);
 
-    if (!v) {
+    if (v) {
+      final granted = await NotificationService.requestPermissions();
+      if (!granted) {
+        await _setBool(PreferenceKeys.masterNotifications, false);
+        if (!mounted) return;
+        setState(() => _masterNotifs = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'El sistema no concedió permiso para enviar notificaciones.',
+            ),
+          ),
+        );
+      }
+    } else {
       // Apaga todo: cancelamos recordatorios programados
       await NotificationService.cancelAll();
     }
@@ -79,7 +101,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
 
   Future<void> _toggleCalendar(bool v) async {
     setState(() => _calendarNotifs = v);
-    await _setBool('notif_calendar_enabled', v);
+    await _setBool(PreferenceKeys.calendarNotifications, v);
 
     // Si apaga calendario, cancelamos recordatorios programados
     if (!v) {
@@ -89,29 +111,41 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
 
   Future<void> _toggleOnlyMyLevel(bool v) async {
     setState(() => _calendarOnlyMyLevel = v);
-    await _setBool('notif_calendar_only_my_level', v);
+    await _setBool(PreferenceKeys.calendarOnlyMyLevel, v);
   }
 
   Future<void> _testNotification() async {
-    // Si el maestro está apagado, igual dejamos que pruebe (pero le avisamos)
-    await NotificationService.requestPermissions();
+    final granted = await NotificationService.requestPermissions();
+    if (!granted) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Habilita el permiso de notificaciones en el sistema.'),
+        ),
+      );
+      return;
+    }
 
-    await NotificationService.showInstant(
-      id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
-      title: 'PUCESM App',
-      body: 'Si ves esto, tus notificaciones están funcionando ✅',
-    );
+    try {
+      await NotificationService.showInstant(
+        id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
+        title: 'PUCE Manabí App',
+        body: 'Si ves esto, tus notificaciones están funcionando ✅',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo enviar la notificación de prueba.'),
+        ),
+      );
+      return;
+    }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _masterNotifs
-              ? 'Notificación de prueba enviada.'
-              : 'Enviado ✅ (pero tu switch maestro está apagado).',
-        ),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Notificación de prueba enviada.')));
   }
 
   String get _levelLabel => _profileLevel == 'posgrado' ? 'Posgrado' : 'Grado';
@@ -162,7 +196,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                     subtitle: const Text(
-                      'Recibe avisos cuando haya noticias institucionales',
+                      'Avisa al detectar contenido nuevo mientras usas la app',
                     ),
                   ),
                 ),
@@ -234,7 +268,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                     leading: _IconBox(
                       icon: Icons.delete_outline,
                       color: Colors.red,
-                      bg: Colors.red.withOpacity(0.10),
+                      bg: Colors.red.withValues(alpha: 0.10),
                     ),
                     title: const Text(
                       'Restablecer preferencias',
@@ -245,12 +279,14 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                     ),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () async {
+                      final appState = context.read<AppState>();
                       final ok = await showDialog<bool>(
                         context: context,
                         builder: (_) => AlertDialog(
                           title: const Text('Confirmar'),
-                          content:
-                              const Text('¿Deseas restablecer tus preferencias?'),
+                          content: const Text(
+                            '¿Deseas restablecer tus preferencias?',
+                          ),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(context, false),
@@ -264,31 +300,18 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
                         ),
                       );
 
-                      if (ok == true) {
-                        final prefs = await SharedPreferences.getInstance();
+                      if (ok != true || !context.mounted) return;
 
-                        // Perfil
-                        await prefs.remove('profile_name');
-                        await prefs.remove('profile_email');
-                        await prefs.remove('profile_program');
-                        await prefs.remove('profile_level');
+                      await appState.resetProfileAndNotificationPreferences();
+                      await NotificationService.cancelAll();
 
-                        // Notifs (incluye compat)
-                        await prefs.remove('privacy_notifications');
-                        await prefs.remove('notif_news_enabled');
-                        await prefs.remove('notif_news');
-                        await prefs.remove('notif_calendar_enabled');
-                        await prefs.remove('notif_calendar_only_my_level');
-
-                        await NotificationService.cancelAll();
-
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Preferencias restablecidas ✅')),
-                        );
-                        await _load();
-                      }
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Preferencias restablecidas ✅'),
+                        ),
+                      );
+                      context.go('/onboarding');
                     },
                   ),
                 ),
@@ -313,7 +336,7 @@ class _SectionTitle extends StatelessWidget {
           fontSize: 13,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.4,
-          color: cs.primary.withOpacity(0.9),
+          color: cs.primary.withValues(alpha: 0.9),
         ),
       ),
     );
@@ -325,11 +348,7 @@ class _IconBox extends StatelessWidget {
   final Color color;
   final Color? bg;
 
-  const _IconBox({
-    required this.icon,
-    required this.color,
-    this.bg,
-  });
+  const _IconBox({required this.icon, required this.color, this.bg});
 
   @override
   Widget build(BuildContext context) {
@@ -337,11 +356,10 @@ class _IconBox extends StatelessWidget {
       width: 44,
       height: 44,
       decoration: BoxDecoration(
-        color: bg ?? color.withOpacity(0.10),
+        color: bg ?? color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Icon(icon, color: color),
     );
   }
 }
-

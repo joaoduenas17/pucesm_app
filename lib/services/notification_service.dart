@@ -13,30 +13,37 @@ class NotificationService {
   // =========================
   static Future<void> init() async {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const ios = DarwinInitializationSettings();
+    const ios = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
 
     const settings = InitializationSettings(android: android, iOS: ios);
     await _plugin.initialize(settings);
-
-    // Pedimos permisos al iniciar (OK para tu caso)
-    await requestPermissions();
   }
 
   // =========================
   // PERMISSIONS
   // =========================
-  static Future<void> requestPermissions() async {
-    // iOS: pedir permiso
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>()
-        ?.requestPermissions(alert: true, badge: true, sound: true);
+  static Future<bool> requestPermissions() async {
+    try {
+      final iosGranted = await _plugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >()
+          ?.requestPermissions(alert: true, badge: true, sound: true);
 
-    // Android 13+: pedir permiso
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
+      final androidGranted = await _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.requestNotificationsPermission();
+
+      return iosGranted ?? androidGranted ?? true;
+    } on PlatformException {
+      return false;
+    }
   }
 
   // =========================
@@ -85,39 +92,17 @@ class NotificationService {
       iOS: DarwinNotificationDetails(),
     );
 
-    try {
-      // ✅ Intento 1: exacta (ideal)
-      await _plugin.zonedSchedule(
-        id,
-        title,
-        body,
-        when,
-        details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: null,
-      );
-    } on PlatformException catch (e) {
-      // ✅ Fallback: Android 12/13+ puede bloquear "exact alarms"
-      if (e.code == 'exact_alarms_not_permitted') {
-        await _plugin.zonedSchedule(
-          id,
-          title,
-          body,
-          when,
-          details,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-          matchDateTimeComponents: null,
-        );
-        return;
-      }
-
-      // Si fue otro error, lo re-lanzamos
-      rethrow;
-    }
+    await _plugin.zonedSchedule(
+      id,
+      title,
+      body,
+      when,
+      details,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: null,
+    );
   }
 
   // =========================

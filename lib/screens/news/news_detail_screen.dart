@@ -15,10 +15,11 @@ class NewsDetailScreen extends StatefulWidget {
 
 class _NewsDetailScreenState extends State<NewsDetailScreen> {
   late final WebViewController _controller;
+  Brightness? _loadedBrightness;
 
   // Links oficiales (mismos que perfil)
   static const _links = {
-    'web': 'https://pucesm.edu.ec/',
+    'web': 'https://pucem.edu.ec/',
     'facebook': 'https://www.facebook.com/PUCEManabi',
     'instagram': 'https://www.instagram.com/puce_manabi/',
     'x': 'https://x.com/PUCE_SedeManabi/',
@@ -29,28 +30,48 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
   void initState() {
     super.initState();
 
-    // ✅ Aquí ya no repetimos el título en el HTML porque lo mostramos en UI
-    final html = _wrapHtml(widget.item.descriptionHtml);
-
     _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..loadHtmlString(html);
+      ..setJavaScriptMode(JavaScriptMode.disabled);
   }
 
-  String _wrapHtml(String bodyHtml) {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final brightness = Theme.of(context).brightness;
+    if (_loadedBrightness == brightness) return;
+
+    _loadedBrightness = brightness;
+    _controller
+      ..setBackgroundColor(
+        brightness == Brightness.dark ? const Color(0xFF111A2E) : Colors.white,
+      )
+      ..loadHtmlString(
+        _wrapHtml(
+          widget.item.descriptionHtml,
+          darkMode: brightness == Brightness.dark,
+        ),
+      );
+  }
+
+  String _wrapHtml(String bodyHtml, {required bool darkMode}) {
+    final background = darkMode ? '#111a2e' : '#ffffff';
+    final foreground = darkMode ? '#e2e8f0' : '#0f172a';
+    final link = darkMode ? '#8fb0ff' : '#0f3796';
     return '''
 <!doctype html>
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
+  html { background: $background; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
     padding: 12px;
-    color: #0f172a;
+    background: $background;
+    color: $foreground;
   }
   img { max-width: 100%; height: auto; border-radius: 12px; }
-  a { color: #1e63ff; }
+  a { color: $link; }
 </style>
 </head>
 <body>
@@ -71,10 +92,15 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
   }
 
   String _resolveNewsWebUrl(NewsItem n) {
-    // ✅ Si tu API ya trae una URL real, úsala aquí:
-    // Por ejemplo: return n.url;
-    // Como no la vemos en tu modelo, dejamos fallback a la sección de noticias.
-    return 'https://pucesm.edu.ec/noticias';
+    final slug = n.urlSlug.trim();
+    if (slug.isEmpty) return 'https://pucem.edu.ec/noticias';
+
+    final absolute = Uri.tryParse(slug);
+    if (absolute != null && absolute.hasScheme) return absolute.toString();
+
+    var path = slug.startsWith('/') ? slug : '/$slug';
+    if (!path.startsWith('/noticias/')) path = '/noticias$path';
+    return Uri.https('pucem.edu.ec', path).toString();
   }
 
   @override
@@ -90,9 +116,7 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
     final webUrl = _resolveNewsWebUrl(n);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Detalle'),
-      ),
+      appBar: AppBar(title: const Text('Detalle')),
       body: Column(
         children: [
           // ✅ Header (imagen + título + acciones)
@@ -113,7 +137,7 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
                         loadingBuilder: (context, child, progress) {
                           if (progress == null) return child;
                           return Container(
-                            color: const Color(0xFFF1F4FA),
+                            color: cs.surfaceContainerHighest,
                             child: const Center(
                               child: Padding(
                                 padding: EdgeInsets.all(16),
@@ -122,8 +146,8 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
                             ),
                           );
                         },
-                        errorBuilder: (_, __, ___) => Container(
-                          color: const Color(0xFFF1F4FA),
+                        errorBuilder: (_, _, _) => Container(
+                          color: cs.surfaceContainerHighest,
                           child: const Center(
                             child: Icon(Icons.image_not_supported),
                           ),
@@ -145,10 +169,7 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
 
                 if (n.dateLabel.isNotEmpty) ...[
                   const SizedBox(height: 10),
-                  _MiniPill(
-                    text: n.dateLabel,
-                    color: cs.primary,
-                  ),
+                  _MiniPill(text: n.dateLabel, color: cs.primary),
                 ],
 
                 const SizedBox(height: 12),
@@ -179,9 +200,7 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
           const Divider(height: 1),
 
           // ✅ Contenido HTML (WebView) con scroll propio
-          Expanded(
-            child: WebViewWidget(controller: _controller),
-          ),
+          Expanded(child: WebViewWidget(controller: _controller)),
 
           // ✅ Footer “pro” con redes
           Padding(
@@ -198,7 +217,7 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.4,
-                        color: cs.primary.withOpacity(0.9),
+                        color: cs.primary.withValues(alpha: 0.9),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -260,7 +279,7 @@ class _MiniPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.10),
+        color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -296,7 +315,7 @@ class _SocialChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.10),
+          color: color.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Row(
@@ -306,10 +325,7 @@ class _SocialChip extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               label,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                color: color,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w800, color: color),
             ),
           ],
         ),

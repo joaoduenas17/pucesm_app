@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+
+import '../../app/app_state.dart';
+import '../../theme/app_theme.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -11,8 +14,6 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
-  static const Color puceBlue = Color(0xFF1E63FF);
-
   late final AnimationController _controller;
   late final Animation<double> _fade;
   late final Animation<double> _scale;
@@ -27,9 +28,10 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
-    _scale = Tween<double>(begin: 0.92, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
-    );
+    _scale = Tween<double>(
+      begin: 0.92,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
     _controller.forward();
 
@@ -40,12 +42,9 @@ class _SplashScreenState extends State<SplashScreen>
     // Tiempo total en splash (mantengo tu timing)
     await Future.delayed(const Duration(milliseconds: 1300));
 
-    final prefs = await SharedPreferences.getInstance();
-    final done = prefs.getBool('onboarding_done') ?? false;
-
     if (!mounted) return;
 
-    // ✅ Si ya configuró, entra a Home. Si no, va al onboarding.
+    final done = context.read<AppState>().onboardingDone;
     context.go(done ? '/' : '/onboarding');
   }
 
@@ -58,7 +57,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: puceBlue,
+      backgroundColor: AppTheme.primary,
       body: Center(
         child: FadeTransition(
           opacity: _fade,

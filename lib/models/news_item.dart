@@ -17,6 +17,11 @@ class NewsItem {
     required this.dateCreated,
   });
 
+  static int _asInt(dynamic value) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
   factory NewsItem.fromJson(Map<String, dynamic> json) {
     DateTime? parsedDate;
     final rawDate = json['date_created']?.toString();
@@ -25,7 +30,7 @@ class NewsItem {
     }
 
     return NewsItem(
-      id: (json['id'] as num).toInt(),
+      id: _asInt(json['id']),
       title: (json['title'] ?? '').toString(),
       predescription: (json['predescription'] ?? '').toString(),
       descriptionHtml: (json['description'] ?? '').toString(),

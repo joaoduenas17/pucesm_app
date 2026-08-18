@@ -11,9 +11,7 @@ class HelpCenterScreen extends StatelessWidget {
     final uri = Uri.parse(url);
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok) {
-      // No tiramos exception para no romper UX
-      // ignore: avoid_print
-      print('No se pudo abrir: $url');
+      debugPrint('No se pudo abrir: $url');
     }
   }
 
@@ -22,7 +20,7 @@ class HelpCenterScreen extends StatelessWidget {
       scheme: 'mailto',
       path: _contactEmail,
       queryParameters: {
-        'subject': 'Soporte PUCESM App',
+        'subject': 'Soporte PUCE Manabí App',
         'body': 'Hola, necesito ayuda con:',
       },
     );
@@ -46,12 +44,12 @@ class HelpCenterScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: cs.primary.withOpacity(0.08),
+              color: cs.primary.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Text(
+            child: Text(
               'Aquí encontrarás respuestas rápidas y canales de contacto oficiales.',
-              style: TextStyle(color: Color(0xFF5B6472), height: 1.25),
+              style: TextStyle(color: cs.onSurfaceVariant, height: 1.25),
             ),
           ),
           const SizedBox(height: 14),
@@ -73,7 +71,8 @@ class HelpCenterScreen extends StatelessWidget {
 
           // ✅ Reemplazo de las 2 preguntas que no te gustaban
           const _FaqTile(
-            title: '¿Cómo actualizo las noticias y por qué a veces no cargan imágenes?',
+            title:
+                '¿Cómo actualizo las noticias y por qué a veces no cargan imágenes?',
             body:
                 'En la pantalla de Noticias puedes hacer “pull to refresh” (desliza hacia abajo) para recargar. '
                 'Si una imagen no carga, suele ser por conexión o porque la fuente requiere encabezados de acceso. '
@@ -98,7 +97,7 @@ class HelpCenterScreen extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: cs.primary.withOpacity(0.10),
+                  color: cs.primary.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(Icons.mail_outline, color: cs.primary),
@@ -118,12 +117,15 @@ class HelpCenterScreen extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: cs.primary.withOpacity(0.10),
+                  color: cs.primary.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(Icons.call_outlined, color: cs.primary),
               ),
-              title: const Text('PBX', style: TextStyle(fontWeight: FontWeight.w800)),
+              title: const Text(
+                'PBX',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
               subtitle: const Text('05 3700750'),
               trailing: const Icon(Icons.chevron_right),
               onTap: _callPbx,
@@ -137,14 +139,14 @@ class HelpCenterScreen extends StatelessWidget {
           _LinkTile(
             icon: Icons.language,
             title: 'Sitio web',
-            subtitle: 'pucesm.edu.ec',
-            onTap: () => _openUrl('https://pucesm.edu.ec/'),
+            subtitle: 'pucem.edu.ec',
+            onTap: () => _openUrl('https://pucem.edu.ec/'),
           ),
           _LinkTile(
             icon: Icons.school_outlined,
             title: 'Noticias',
             subtitle: 'Sección de noticias PUCE Manabí',
-            onTap: () => _openUrl('https://pucesm.edu.ec/noticias'),
+            onTap: () => _openUrl('https://pucem.edu.ec/noticias'),
           ),
         ],
       ),
@@ -165,7 +167,7 @@ class _SectionTitle extends StatelessWidget {
         fontSize: 13,
         fontWeight: FontWeight.w800,
         letterSpacing: 0.4,
-        color: color.withOpacity(0.9),
+        color: color.withValues(alpha: 0.9),
       ),
     );
   }
@@ -178,6 +180,7 @@ class _FaqTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Card(
       child: ExpansionTile(
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
@@ -185,7 +188,7 @@ class _FaqTile extends StatelessWidget {
         children: [
           Text(
             body,
-            style: const TextStyle(color: Color(0xFF5B6472), height: 1.3),
+            style: TextStyle(color: colors.onSurfaceVariant, height: 1.3),
           ),
         ],
       ),
@@ -216,7 +219,7 @@ class _LinkTile extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: cs.primary.withOpacity(0.10),
+            color: cs.primary.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Icon(icon, color: cs.primary),
