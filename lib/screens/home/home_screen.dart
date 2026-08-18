@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/news_item.dart';
 import '../../models/course_item.dart';
 import '../../services/pucem_api.dart';
+import '../../utils/metric_logger.dart';
 
 enum HomeSection { noticias, grado, posgrado }
 
@@ -26,24 +27,46 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _newsFuture = PucemApi.fetchNews();
-    _gradoFuture = PucemApi.fetchCourses(1);
-    _posgradoFuture = PucemApi.fetchCourses(2);
+    _newsFuture = MetricLogger.medir(
+      'carga_noticias_inicio',
+      PucemApi.fetchNews,
+    );
+    _gradoFuture = MetricLogger.medir(
+      'carga_grado_inicio',
+      () => PucemApi.fetchCourses(1),
+    );
+    _posgradoFuture = MetricLogger.medir(
+      'carga_posgrado_inicio',
+      () => PucemApi.fetchCourses(2),
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      MetricLogger.registrarDesdeInicio('inicio_dart_home');
+    });
   }
 
   Future<void> _refreshNews() async {
-    setState(() => _newsFuture = PucemApi.fetchNews());
-    await _newsFuture;
+    final future = MetricLogger.medir('recarga_noticias', PucemApi.fetchNews);
+    setState(() => _newsFuture = future);
+    await future;
   }
 
   Future<void> _refreshGrado() async {
-    setState(() => _gradoFuture = PucemApi.fetchCourses(1));
-    await _gradoFuture;
+    final future = MetricLogger.medir(
+      'recarga_grado',
+      () => PucemApi.fetchCourses(1),
+    );
+    setState(() => _gradoFuture = future);
+    await future;
   }
 
   Future<void> _refreshPosgrado() async {
-    setState(() => _posgradoFuture = PucemApi.fetchCourses(2));
-    await _posgradoFuture;
+    final future = MetricLogger.medir(
+      'recarga_posgrado',
+      () => PucemApi.fetchCourses(2),
+    );
+    setState(() => _posgradoFuture = future);
+    await future;
   }
 
   @override
