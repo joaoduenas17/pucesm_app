@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../app/app_state.dart';
 import '../../data/study_programs.dart';
 import '../../models/user_profile.dart';
+import '../../widgets/study_level_selector.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -54,7 +55,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     if (_selectedProgram == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona tu carrera/programa.')),
+        const SnackBar(content: Text('Selecciona tu carrera o programa.')),
       );
       return;
     }
@@ -73,9 +74,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     Navigator.pop(context, true);
   }
 
-  void _onLevelChanged(StudyLevel? value) {
-    if (value == null) return;
-
+  void _onLevelChanged(StudyLevel value) {
     setState(() {
       _level = value;
 
@@ -149,14 +148,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 const _BlockTitle(title: 'Nivel'),
                 const SizedBox(height: 10),
 
-                _LevelSelector(value: _level, onChanged: _onLevelChanged),
+                StudyLevelSelector(value: _level, onChanged: _onLevelChanged),
 
                 const SizedBox(height: 16),
 
                 _BlockTitle(
-                  title: _level == StudyLevel.grado
-                      ? 'Carrera (Grado)'
-                      : 'Programa (Posgrado)',
+                  title: switch (_level) {
+                    StudyLevel.grado => 'Carrera (Grado)',
+                    StudyLevel.posgrado => 'Programa (Posgrado)',
+                    StudyLevel.pucetec => 'Carrera tecnológica (PUCE TEC)',
+                  },
                 ),
                 const SizedBox(height: 10),
 
@@ -241,74 +242,6 @@ class _BlockTitle extends StatelessWidget {
           color: cs.primary.withValues(alpha: 0.9),
         ),
       ),
-    );
-  }
-}
-
-class _LevelSelector extends StatelessWidget {
-  final StudyLevel value;
-  final ValueChanged<StudyLevel?> onChanged;
-
-  const _LevelSelector({required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    Widget pill({
-      required String label,
-      required StudyLevel v,
-      required IconData icon,
-    }) {
-      final active = value == v;
-      return Expanded(
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => onChanged(v),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            decoration: BoxDecoration(
-              color: active ? cs.primary.withValues(alpha: 0.14) : cs.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: active
-                    ? cs.primary.withValues(alpha: 0.45)
-                    : cs.outlineVariant,
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  size: 18,
-                  color: active ? cs.primary : cs.onSurfaceVariant,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: active ? cs.primary : cs.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Row(
-      children: [
-        pill(label: 'Grado', v: StudyLevel.grado, icon: Icons.school_outlined),
-        const SizedBox(width: 10),
-        pill(
-          label: 'Posgrado',
-          v: StudyLevel.posgrado,
-          icon: Icons.workspace_premium_outlined,
-        ),
-      ],
     );
   }
 }

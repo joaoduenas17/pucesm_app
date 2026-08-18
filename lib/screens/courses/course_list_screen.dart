@@ -5,7 +5,7 @@ import '../../services/pucem_api.dart';
 import '../../models/course_item.dart';
 
 class CourseListScreen extends StatefulWidget {
-  final int type; // 1 = Grado | 2 = Posgrado
+  final int type; // 1 = Grado | 2 = Posgrado | 7 = PUCE TEC
   final String title;
 
   const CourseListScreen({super.key, required this.type, required this.title});

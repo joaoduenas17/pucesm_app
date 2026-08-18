@@ -51,4 +51,27 @@ void main() {
       'Maestría en Derecho Penal',
     );
   });
+
+  test('persiste PUCE TEC como un nivel académico independiente', () async {
+    SharedPreferences.setMockInitialValues({});
+    final state = AppState();
+    await state.load();
+
+    await state.updateProfile(
+      fullName: 'Estudiante Tecnológico',
+      email: 'tecnologia@puce.edu.ec',
+      level: StudyLevel.pucetec,
+      program: 'Tecnología Superior en Marketing Digital',
+    );
+
+    expect(state.studyLevel, StudyLevel.pucetec);
+    expect(state.userProfile.studyLevel.label, 'PUCE TEC');
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString(PreferenceKeys.profileLevel), 'pucetec');
+    expect(
+      prefs.getString(PreferenceKeys.profileProgram),
+      'Tecnología Superior en Marketing Digital',
+    );
+  });
 }

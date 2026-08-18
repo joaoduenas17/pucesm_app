@@ -415,7 +415,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     final event = a2c.Event(
       title: e.title,
-      description: _categoryLabel(e.category),
+      description:
+          'Evento del calendario académico de PUCE Manabí · ${_categoryLabel(e.category)}',
+      location: 'PUCE Manabí',
       startDate: start,
       endDate: end,
       allDay: true,
@@ -424,10 +426,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
     try {
       final ok = await a2c.Add2Calendar.addEvent2Cal(event);
       _toast(
-        ok ? 'Evento agregado al calendario.' : 'No se pudo agregar el evento.',
+        ok
+            ? 'Evento agregado al calendario.'
+            : 'No se encontró una app de calendario disponible.',
       );
     } catch (_) {
-      _toast('Error al intentar agregar al calendario.');
+      _toast('No se pudo abrir el calendario del dispositivo.');
     }
   }
 
@@ -455,14 +459,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
       return true;
     }
 
-    if (level == StudyLevel.grado) {
-      return e.category == CalendarCategory.grado ||
-          e.category == CalendarCategory.pucetecGrado;
-    } else if (level == StudyLevel.posgrado) {
-      return e.category == CalendarCategory.posgrado;
+    switch (level) {
+      case StudyLevel.grado:
+        return e.category == CalendarCategory.grado ||
+            e.category == CalendarCategory.pucetecGrado;
+      case StudyLevel.posgrado:
+        return e.category == CalendarCategory.posgrado;
+      case StudyLevel.pucetec:
+        return e.category == CalendarCategory.pucetecGrado;
     }
-
-    return true;
   }
 
   Future<void> _scheduleReminderForEvent(CalendarEvent e) async {
@@ -535,7 +540,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       case CalendarCategory.posgrado:
         return 'POSGRADO';
       case CalendarCategory.pucetecGrado:
-        return 'PUCETEC/GRADO';
+        return 'PUCE TEC / GRADO';
       case CalendarCategory.todos:
         return 'TODOS';
       case CalendarCategory.all:
@@ -605,7 +610,7 @@ class _FilterChips extends StatelessWidget {
         chip(CalendarCategory.todos, 'Institucional'),
         chip(CalendarCategory.grado, 'Grado'),
         chip(CalendarCategory.posgrado, 'Posgrado'),
-        chip(CalendarCategory.pucetecGrado, 'PUCETEC/Grado'),
+        chip(CalendarCategory.pucetecGrado, 'PUCE TEC / Grado'),
       ],
     );
   }
@@ -731,7 +736,7 @@ class _EventCard extends StatelessWidget {
       case CalendarCategory.posgrado:
         return 'POSGRADO';
       case CalendarCategory.pucetecGrado:
-        return 'PUCETEC/GRADO';
+        return 'PUCE TEC / GRADO';
       case CalendarCategory.todos:
         return 'TODOS';
       case CalendarCategory.all:

@@ -29,6 +29,7 @@ import '../models/news_item.dart';
 import '../screens/courses/course_list_screen.dart';
 import '../screens/courses/course_detail_screen.dart';
 import '../models/course_item.dart';
+import '../services/pucem_api.dart';
 
 // Widgets
 import '../widgets/bottom_nav.dart';
@@ -123,17 +124,28 @@ class AppRouter {
           ),
 
           // ======================
-          // Cursos (Grado / Posgrado)
+          // Cursos (Grado / Posgrado / PUCE TEC)
           // ======================
           GoRoute(
             path: '/grado',
-            builder: (context, state) =>
-                const CourseListScreen(type: 1, title: 'Grado'),
+            builder: (context, state) => const CourseListScreen(
+              type: PucemApi.gradoCourseType,
+              title: 'Grado',
+            ),
           ),
           GoRoute(
             path: '/posgrado',
-            builder: (context, state) =>
-                const CourseListScreen(type: 2, title: 'Posgrado'),
+            builder: (context, state) => const CourseListScreen(
+              type: PucemApi.posgradoCourseType,
+              title: 'Posgrado',
+            ),
+          ),
+          GoRoute(
+            path: '/pucetec',
+            builder: (context, state) => const CourseListScreen(
+              type: PucemApi.pucetecCourseType,
+              title: 'PUCE TEC',
+            ),
           ),
           GoRoute(
             path: '/courses/detail',

@@ -7,7 +7,7 @@ import 'package:pucesm_app/app/app_state.dart';
 import 'package:pucesm_app/screens/onboarding/onboarding_screen.dart';
 
 void main() {
-  testWidgets('onboarding permite cambiar entre grado y posgrado', (
+  testWidgets('onboarding muestra el logo y permite elegir los tres niveles', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -22,11 +22,19 @@ void main() {
     );
 
     expect(find.text('Bienvenido a PUCE Manabí App 👋'), findsOneWidget);
+    expect(find.bySemanticsLabel('Logo de PUCE Manabí'), findsOneWidget);
     expect(find.text('Carrera (Grado)'), findsOneWidget);
 
     await tester.tap(find.text('Posgrado'));
     await tester.pump();
 
     expect(find.text('Programa (Posgrado)'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('PUCE TEC'));
+    await tester.tap(find.text('PUCE TEC'));
+    await tester.pump();
+
+    expect(find.text('Carrera tecnológica (PUCE TEC)'), findsOneWidget);
+    expect(find.text('Tecnología Superior en Acuicultura'), findsOneWidget);
   });
 }

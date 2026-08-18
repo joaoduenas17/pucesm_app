@@ -1,14 +1,25 @@
-enum StudyLevel { grado, posgrado }
+enum StudyLevel { grado, posgrado, pucetec }
 
 extension StudyLevelX on StudyLevel {
   String get storageValue => name;
 
-  String get label => this == StudyLevel.posgrado ? 'Posgrado' : 'Grado';
+  String get label {
+    switch (this) {
+      case StudyLevel.grado:
+        return 'Grado';
+      case StudyLevel.posgrado:
+        return 'Posgrado';
+      case StudyLevel.pucetec:
+        return 'PUCE TEC';
+    }
+  }
 
   static StudyLevel fromStorage(String? value) {
-    return value?.toLowerCase() == StudyLevel.posgrado.name
-        ? StudyLevel.posgrado
-        : StudyLevel.grado;
+    final normalized = value?.trim().toLowerCase();
+    return StudyLevel.values.firstWhere(
+      (level) => level.name == normalized,
+      orElse: () => StudyLevel.grado,
+    );
   }
 }
 
