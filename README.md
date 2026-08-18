@@ -1,191 +1,76 @@
-📱 PUCESM App – Aplicación Académica PUCE Manabí
+# PUCE Manabí App
 
-Aplicación móvil desarrollada en Flutter como proyecto académico, cuyo objetivo es centralizar información institucional relevante de la PUCE Manabí, ofreciendo una experiencia moderna, personalizada y accesible para estudiantes de grado y posgrado.
+Aplicación académica desarrollada en Flutter para centralizar información útil de PUCE Manabí. Es un proyecto académico independiente y no una aplicación oficial de la Universidad.
 
-🎯 Objetivo del proyecto
+## Funcionalidades
 
-Desarrollar una aplicación móvil multiplataforma que permita a los estudiantes:
+- Noticias institucionales obtenidas desde la API pública, con actualización manual y detalle en HTML.
+- Oferta vigente de carreras de grado y programas de posgrado.
+- Calendario académico 2026 con búsqueda, filtros, historial, exportación al calendario del dispositivo y recordatorios locales.
+- Acceso integrado al Entorno Virtual de Aprendizaje (EVA).
+- Perfil local con nivel, programa y foto.
+- Tema claro/oscuro, tamaño de texto y reducción de animaciones.
+- Preferencias de notificación explícitas y persistidas en el dispositivo.
 
-Consultar noticias institucionales
+La aplicación no requiere un backend propio: consume los servicios públicos institucionales existentes y mantiene las preferencias personales de forma local.
 
-Visualizar el calendario académico
+## Plataformas
 
-Acceder a carreras y programas
+El desarrollo y las pruebas se concentran en Android. La configuración básica de iOS, macOS, Windows y Linux se conserva, pero las integraciones nativas deben validarse en cada plataforma antes de distribuirlas.
 
-Gestionar preferencias personales
+## Requisitos
 
-Recibir notificaciones personalizadas según su nivel académico
+- Flutter compatible con Dart `^3.10.4`.
+- Android Studio o un dispositivo Android configurado para depuración.
+- Conexión a Internet para noticias, programas y EVA.
 
-El proyecto se enfoca en la experiencia de usuario, la organización del código y la justificación académica, simulando escenarios reales usados en aplicaciones institucionales.
+## Ejecución
 
-🧩 Funcionalidades principales
-👤 Perfil de usuario
-
-Edición de nombre y correo
-
-Selección de nivel académico: Grado / Posgrado
-
-Selección de carrera o programa
-
-Persistencia local mediante SharedPreferences
-
-Foto de perfil (galería / cámara)
-
-📰 Noticias institucionales
-
-Consumo de API pública institucional
-
-Listado de noticias con imágenes
-
-Vista detallada con contenido HTML
-
-Visualización embebida mediante WebView
-
-Opción de abrir la noticia en el sitio web oficial
-
-Notificación automática cuando hay una noticia nueva
-
-📅 Calendario académico
-
-Eventos académicos reales (grado, posgrado, institucional)
-
-Filtros por categoría
-
-Búsqueda de eventos
-
-Agrupación por mes
-
-Detalle del evento
-
-Agregar evento al calendario del dispositivo
-
-Recordatorios personalizados según el nivel académico
-
-🔔 Sistema de notificaciones
-
-Notificaciones locales con flutter_local_notifications
-
-Filtros por:
-
-Nivel académico
-
-Preferencias del usuario
-
-Configuración desde la pantalla de Privacidad y Seguridad
-
-⚠️ Nota: En algunos emuladores Android las notificaciones programadas pueden no ejecutarse correctamente. En dispositivos físicos el sistema funciona según lo esperado.
-
-🆘 Centro de ayuda
-
-Preguntas frecuentes
-
-Contacto institucional (correo y teléfono)
-
-Enlaces oficiales
-
-🛠️ Tecnologías utilizadas
-
-Flutter 3
-
-Dart
-
-go_router – navegación
-
-provider – manejo de estado
-
-shared_preferences – persistencia local
-
-http – consumo de API REST
-
-flutter_local_notifications – notificaciones
-
-timezone – programación de recordatorios
-
-add_2_calendar – integración con calendario del dispositivo
-
-webview_flutter – visualización de contenido HTML
-
-image_picker – selección de imágenes
-
-🧠 Arquitectura del proyecto
-
-El proyecto sigue una estructura modular:
-lib/
-├── app/
-│   └── app_state.dart
-├── models/
-│   ├── news_item.dart
-│   └── course_item.dart
-├── services/
-│   ├── pucem_api.dart
-│   └── notification_service.dart
-├── screens/
-│   ├── home/
-│   ├── news/
-│   ├── calendar/
-│   ├── profile/
-│   ├── courses/
-│   └── help/
-├── widgets/
-└── main.dart
-
-Esta separación facilita:
-
-Mantenimiento
-
-Escalabilidad
-
-Justificación académica del diseño
-
-🌐 Backend y datos
-
-El proyecto consume APIs públicas institucionales
-
-No se implementa backend propio
-
-Se simula un entorno real mediante:
-
-APIs REST
-
-Persistencia local
-
-Lógica de negocio en el cliente
-
-Esto permite justificar el proyecto como un prototipo funcional (MVP).
-
-🚀 Instalación y ejecución
-
-Clonar el repositorio:
-
-git clone https://github.com/tu-usuario/pucesm_app.git
-
-
-Instalar dependencias:
-
+```bash
+git clone https://github.com/joaoduenas17/pucesm_app.git
+cd pucesm_app
 flutter pub get
-
-
-Ejecutar la aplicación:
-
 flutter run
+```
 
+Comprobaciones recomendadas antes de integrar cambios:
 
-Recomendado probar en dispositivo físico para notificaciones.
+```bash
+dart format --output=none --set-exit-if-changed lib test
+flutter analyze
+flutter test
+```
 
-📌 Estado del proyecto
+## Estructura
 
-✅ MVP funcional
-✅ Listo para presentación académica
-✅ Código organizado y documentado
-🔜 Posible integración futura con backend real
+```text
+lib/
+├── app/          # Estado, navegación y claves de preferencias
+├── data/         # Catálogos locales compartidos
+├── models/       # Modelos de perfil, noticias y programas
+├── screens/      # Pantallas organizadas por funcionalidad
+├── services/     # API institucional y notificaciones locales
+├── theme/        # Temas claro y oscuro
+└── widgets/      # Componentes compartidos
+```
 
-👨‍💻 Autor
+## Firma de Android
 
-Joao Dueñas
-Proyecto académico – Ingeniería de Software
-Pontificia Universidad Católica del Ecuador – Sede Manabí
+Las compilaciones locales pueden usar la firma de depuración. Para crear un artefacto distribuible:
 
-📄 Licencia
+1. Genera un keystore de carga y guárdalo como `android/app/upload-keystore.jks`.
+2. Copia `android/key.properties.example` a `android/key.properties`.
+3. Reemplaza los valores de ejemplo con tus credenciales.
+4. Ejecuta `flutter build appbundle --release`.
 
-Proyecto desarrollado con fines académicos y educativos.
-No destinado a uso comercial.
+El keystore y `key.properties` están excluidos de Git y nunca deben publicarse.
+
+## Datos y privacidad
+
+- Nombre, correo, programa, foto y preferencias se guardan únicamente en el dispositivo.
+- Los permisos de notificación se solicitan al activar la función o al ejecutar una prueba.
+- Las fechas académicas pueden cambiar; siempre prevalecen las publicaciones oficiales de la Universidad.
+
+## Autor
+
+Joao Dueñas — proyecto académico de Ingeniería de Software, Pontificia Universidad Católica del Ecuador, Sede Manabí.

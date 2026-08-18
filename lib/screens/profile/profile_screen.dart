@@ -3,13 +3,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_state.dart';
+import '../../models/user_profile.dart';
+import '../../services/eva_session_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -19,7 +20,7 @@ class ProfileScreen extends StatefulWidget {
   static const _pbxDial = '053700750';
 
   static const _links = {
-    'web': 'https://pucesm.edu.ec/',
+    'web': 'https://pucem.edu.ec/',
     'facebook': 'https://www.facebook.com/PUCEManabi',
     'instagram': 'https://www.instagram.com/puce_manabi/',
     'x': 'https://x.com/PUCE_SedeManabi/',
@@ -31,36 +32,10 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _loadingPrefs = true;
-
-  String _name = 'Estudiante PUCE';
-  String _email = 'correo@puce.edu.ec';
-  String _level = 'grado'; // 'grado' | 'posgrado'
-  String _program = 'Carrera/Programa';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadPrefs();
-  }
-
-  Future<void> _loadPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    setState(() {
-      _name = prefs.getString('profile_name') ?? 'Estudiante PUCE';
-      _email = prefs.getString('profile_email') ?? 'correo@puce.edu.ec';
-      _level = prefs.getString('profile_level') ?? 'grado';
-      _program = prefs.getString('profile_program') ?? 'Carrera/Programa';
-      _loadingPrefs = false;
-    });
-  }
-
-  String get _levelLabel => _level == 'posgrado' ? 'Posgrado' : 'Grado';
-
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final profile = state.userProfile;
 
     return SafeArea(
       child: ListView(
@@ -69,10 +44,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _ProfileHeader(
             imagePath: state.profileImagePath,
             onChangePhoto: () => _openPhotoSheet(context),
-            loading: _loadingPrefs,
-            name: _name,
-            email: _email,
-            programLine: '$_program • $_levelLabel',
+            loading: false,
+            name: profile.fullName,
+            email: profile.email,
+            programLine: '${profile.program} • ${profile.studyLevel.label}',
           ),
           const SizedBox(height: 14),
 
@@ -86,7 +61,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: () async {
               final res = await context.push('/profile/edit');
               if (res == true && context.mounted) {
-                await _loadPrefs(); // ✅ refresca header
                 _toast(context, 'Cambios guardados ✅');
               }
             },
@@ -145,9 +119,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _SectionTitle(title: 'Redes y contacto'),
           const SizedBox(height: 10),
 
-          _SocialRow(
-            onOpen: (url) => _openUrl(context, url),
-          ),
+          _SocialRow(onOpen: (url) => _openUrl(context, url)),
           const SizedBox(height: 10),
           _ContactCard(
             email: ProfileScreen._contactEmail,
@@ -159,9 +131,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           const SizedBox(height: 16),
 
-          _LogoutButton(
-            onTap: () => _logoutEVA(context),
-          ),
+          _LogoutButton(onTap: () => _logoutEVA(context)),
         ],
       ),
     );
@@ -209,7 +179,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 if (hasPhoto)
                   ListTile(
-                    leading: const Icon(Icons.delete_outline, color: Colors.red),
+                    leading: const Icon(
+                      Icons.delete_outline,
+                      color: Colors.red,
+                    ),
                     title: const Text(
                       'Quitar foto',
                       style: TextStyle(color: Colors.red),
@@ -238,8 +211,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (picked == null) return;
 
     final dir = await getApplicationDocumentsDirectory();
-    final ext =
-        p.extension(picked.path).isEmpty ? '.jpg' : p.extension(picked.path);
+    final ext = p.extension(picked.path).isEmpty
+        ? '.jpg'
+        : p.extension(picked.path);
     final fileName = 'profile_photo${ext.toLowerCase()}';
     final saved = File(p.join(dir.path, fileName));
 
@@ -247,6 +221,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (!context.mounted) return;
     await context.read<AppState>().setProfileImagePath(saved.path);
+    if (!context.mounted) return;
     _toast(context, 'Foto actualizada ✅');
   }
 
@@ -254,11 +229,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // LOGOUT EVA (real)
   // =========================
   static Future<void> _logoutEVA(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('logged', false);
+    var sessionDataCleared = true;
+    try {
+      await EvaSessionService.clear();
+    } catch (error, stackTrace) {
+      sessionDataCleared = false;
+      debugPrint('No se pudieron limpiar todos los datos de EVA: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
 
     if (!context.mounted) return;
-    _toast(context, 'Sesión cerrada');
+    _toast(
+      context,
+      sessionDataCleared
+          ? 'Datos de sesión de EVA eliminados'
+          : 'Sesión local cerrada; revisa EVA al volver a entrar',
+    );
     context.go('/virtual');
   }
 
@@ -278,34 +264,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
       scheme: 'mailto',
       path: email,
       queryParameters: {
-        'subject': 'Soporte PUCESM App',
+        'subject': 'Soporte PUCE Manabí App',
         'body': 'Hola, necesito ayuda con:',
       },
     );
     final ok = await launchUrl(uri);
-    if (!ok && context.mounted) _toast(context, 'No se pudo abrir el correo');
+    if (!ok && context.mounted) {
+      _toast(context, 'No se pudo abrir el correo');
+    }
   }
 
   static Future<void> _callPhone(BuildContext context, String number) async {
     final uri = Uri(scheme: 'tel', path: number);
     final ok = await launchUrl(uri);
-    if (!ok && context.mounted) _toast(context, 'No se pudo iniciar la llamada');
+    if (!ok && context.mounted) {
+      _toast(context, 'No se pudo iniciar la llamada');
+    }
   }
 
   // =========================
   // UI helpers
   // =========================
   static void _toast(BuildContext context, String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   static void _showAbout(BuildContext context) {
     showAboutDialog(
       context: context,
-      applicationName: 'PUCESM App',
-      applicationVersion: '0.1.0',
+      applicationName: 'PUCE Manabí App',
+      applicationVersion: '1.0.0',
       applicationLegalese: 'Proyecto académico – PUCE Manabí',
     );
   }
@@ -343,8 +331,8 @@ class _ProfileHeader extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            cs.primary.withOpacity(0.18),
-            cs.primary.withOpacity(0.06),
+            cs.primary.withValues(alpha: 0.18),
+            cs.primary.withValues(alpha: 0.06),
           ],
         ),
       ),
@@ -357,10 +345,10 @@ class _ProfileHeader extends StatelessWidget {
                 width: 68,
                 height: 68,
                 decoration: BoxDecoration(
-                  color: cs.primary.withOpacity(0.14),
+                  color: cs.primary.withValues(alpha: 0.14),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: cs.primary.withOpacity(0.25),
+                    color: cs.primary.withValues(alpha: 0.25),
                     width: 1.2,
                   ),
                   image: hasPhoto
@@ -383,10 +371,13 @@ class _ProfileHeader extends StatelessWidget {
                   child: InkWell(
                     customBorder: const CircleBorder(),
                     onTap: onChangePhoto,
-                    child: const Padding(
-                      padding: EdgeInsets.all(7),
-                      child: Icon(Icons.camera_alt,
-                          size: 16, color: Colors.white),
+                    child: Padding(
+                      padding: const EdgeInsets.all(7),
+                      child: Icon(
+                        Icons.camera_alt,
+                        size: 16,
+                        color: cs.onPrimary,
+                      ),
                     ),
                   ),
                 ),
@@ -422,18 +413,18 @@ class _ProfileHeader extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         email,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF64748B),
+                          color: cs.onSurfaceVariant,
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         programLine,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           height: 1.2,
-                          color: Color(0xFF334155),
+                          color: cs.onSurface,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -453,11 +444,12 @@ class _SkeletonLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       width: w,
       height: h,
       decoration: BoxDecoration(
-        color: const Color(0x22000000),
+        color: cs.onSurface.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
     );
@@ -477,7 +469,7 @@ class _SectionTitle extends StatelessWidget {
         fontSize: 13,
         fontWeight: FontWeight.w800,
         letterSpacing: 0.4,
-        color: cs.primary.withOpacity(0.9),
+        color: cs.primary.withValues(alpha: 0.9),
       ),
     );
   }
@@ -506,7 +498,7 @@ class _SettingTile extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: cs.primary.withOpacity(0.10),
+            color: cs.primary.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Icon(icon, color: cs.primary),
@@ -547,7 +539,7 @@ class _SwitchTile extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: cs.primary.withOpacity(0.10),
+            color: cs.primary.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Icon(icon, color: cs.primary),
@@ -563,10 +555,7 @@ class _TextScaleTile extends StatelessWidget {
   final double value;
   final ValueChanged<double> onChanged;
 
-  const _TextScaleTile({
-    required this.value,
-    required this.onChanged,
-  });
+  const _TextScaleTile({required this.value, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -590,7 +579,7 @@ class _TextScaleTile extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: cs.primary.withOpacity(0.10),
+                    color: cs.primary.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(Icons.text_fields, color: cs.primary),
@@ -619,9 +608,9 @@ class _TextScaleTile extends StatelessWidget {
               divisions: 3,
               onChanged: (v) => onChanged(clamp(v)),
             ),
-            const Text(
+            Text(
               'Ajusta la legibilidad en toda la aplicación.',
-              style: TextStyle(color: Color(0xFF64748B)),
+              style: TextStyle(color: cs.onSurfaceVariant),
             ),
           ],
         ),
@@ -711,7 +700,7 @@ class _SocialChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: cs.primary.withOpacity(0.10),
+          color: cs.primary.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Row(
@@ -721,10 +710,7 @@ class _SocialChip extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               label,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                color: cs.primary,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w800, color: cs.primary),
             ),
           ],
         ),
@@ -767,10 +753,7 @@ class _ContactCard extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
-                TextButton(
-                  onPressed: onEmail,
-                  child: const Text('Escribir'),
-                ),
+                TextButton(onPressed: onEmail, child: const Text('Escribir')),
               ],
             ),
             const Divider(height: 16),
@@ -784,10 +767,7 @@ class _ContactCard extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
-                TextButton(
-                  onPressed: onCall,
-                  child: const Text('Llamar'),
-                ),
+                TextButton(onPressed: onCall, child: const Text('Llamar')),
               ],
             ),
           ],

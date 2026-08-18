@@ -60,10 +60,7 @@ class AppRouter {
         builder: (context, state, child) => BottomNav(child: child),
         routes: [
           // -------- Home --------
-          GoRoute(
-            path: '/',
-            builder: (context, state) => const HomeScreen(),
-          ),
+          GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
 
           // -------- Calendario --------
           GoRoute(
@@ -130,17 +127,13 @@ class AppRouter {
           // ======================
           GoRoute(
             path: '/grado',
-            builder: (context, state) => const CourseListScreen(
-              type: 1,
-              title: 'Grado',
-            ),
+            builder: (context, state) =>
+                const CourseListScreen(type: 1, title: 'Grado'),
           ),
           GoRoute(
             path: '/posgrado',
-            builder: (context, state) => const CourseListScreen(
-              type: 2,
-              title: 'Posgrado',
-            ),
+            builder: (context, state) =>
+                const CourseListScreen(type: 2, title: 'Posgrado'),
           ),
           GoRoute(
             path: '/courses/detail',

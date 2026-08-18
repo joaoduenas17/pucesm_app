@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../models/course_item.dart';
@@ -17,7 +18,10 @@ class CourseDetailScreen extends StatelessWidget {
   // =========================
   // ✅ DESCARGAR Y ABRIR PDF LOCAL
   // =========================
-  Future<void> _downloadAndOpenPdf(BuildContext context, String fileName) async {
+  Future<void> _downloadAndOpenPdf(
+    BuildContext context,
+    String fileName,
+  ) async {
     final scaffold = ScaffoldMessenger.of(context);
 
     try {
@@ -27,41 +31,56 @@ class CourseDetailScreen extends StatelessWidget {
 
       final uri = PucemApi.courseFileUri(fileName);
 
-      final res = await http.get(
-        uri,
-        headers: PucemApi.defaultHeaders(isFile: true),
-      );
+      final res = await http
+          .get(uri, headers: PucemApi.defaultHeaders(isFile: true))
+          .timeout(const Duration(seconds: 30));
 
       if (res.statusCode != 200) {
         throw Exception('HTTP ${res.statusCode}');
       }
 
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/$fileName');
+      final baseName = p.basename(fileName);
+      final safeFileName = baseName.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+      if (safeFileName.isEmpty || safeFileName == '.' || safeFileName == '..') {
+        throw const FormatException('Nombre de archivo inválido');
+      }
+      final outputName = safeFileName.toLowerCase().endsWith('.pdf')
+          ? safeFileName
+          : '$safeFileName.pdf';
+      final file = File(p.join(dir.path, outputName));
 
       await file.writeAsBytes(res.bodyBytes);
 
-      await OpenFilex.open(file.path);
+      final openResult = await OpenFilex.open(file.path);
+      if (openResult.type != ResultType.done) {
+        throw Exception(openResult.message);
+      }
 
-      scaffold.showSnackBar(
-        const SnackBar(content: Text('PDF abierto correctamente.')),
-      );
+      if (scaffold.mounted) {
+        scaffold.showSnackBar(
+          const SnackBar(content: Text('PDF abierto correctamente.')),
+        );
+      }
     } catch (e) {
-      scaffold.showSnackBar(
-        SnackBar(content: Text('No se pudo abrir el PDF: $e')),
-      );
+      if (scaffold.mounted) {
+        scaffold.showSnackBar(
+          SnackBar(content: Text('No se pudo abrir el PDF: $e')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    final cs = Theme.of(context).colorScheme;
+    final primary = cs.primary;
 
     final cover = item.imageBackName.isNotEmpty
         ? PucemApi.courseImageUri(item.imageBackName).toString()
         : (item.imageName.isNotEmpty
-            ? PucemApi.courseImageUri(item.imageName).toString()
-            : null);
+              ? PucemApi.courseImageUri(item.imageName).toString()
+              : null);
 
     final hasPdf = item.pdfName.isNotEmpty;
 
@@ -80,8 +99,8 @@ class CourseDetailScreen extends StatelessWidget {
                   cover,
                   fit: BoxFit.cover,
                   headers: PucemApi.defaultHeaders(isImage: true),
-                  errorBuilder: (_, __, ___) => Container(
-                    color: const Color(0xFFF1F4FA),
+                  errorBuilder: (_, _, _) => Container(
+                    color: cs.surfaceContainerHighest,
                     child: const Center(child: Icon(Icons.image_not_supported)),
                   ),
                 ),
@@ -103,10 +122,10 @@ class CourseDetailScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               item.predescription,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 height: 1.3,
-                color: Color(0xFF5B6472),
+                color: cs.onSurfaceVariant,
               ),
             ),
           ],
@@ -121,14 +140,16 @@ class CourseDetailScreen extends StatelessWidget {
                 _Chip(icon: Icons.school, label: item.modality, color: primary),
               if (item.resolution.isNotEmpty)
                 _Chip(
-                    icon: Icons.verified_outlined,
-                    label: item.resolution,
-                    color: primary),
+                  icon: Icons.verified_outlined,
+                  label: item.resolution,
+                  color: primary,
+                ),
               if (item.price > 0)
                 _Chip(
-                    icon: Icons.payments_outlined,
-                    label: '\$${item.price.toStringAsFixed(2)}',
-                    color: primary),
+                  icon: Icons.payments_outlined,
+                  label: '\$${item.price.toStringAsFixed(2)}',
+                  color: primary,
+                ),
             ],
           ),
 
@@ -138,8 +159,7 @@ class CourseDetailScreen extends StatelessWidget {
           if (hasPdf) ...[
             const SizedBox(height: 14),
             ElevatedButton.icon(
-              onPressed: () =>
-                  _downloadAndOpenPdf(context, item.pdfName),
+              onPressed: () => _downloadAndOpenPdf(context, item.pdfName),
               icon: const Icon(Icons.picture_as_pdf),
               label: const Text('Abrir PDF'),
             ),
@@ -177,9 +197,10 @@ class _HtmlCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(18),
         boxShadow: const [
           BoxShadow(
@@ -204,7 +225,7 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = color.withOpacity(0.12);
+    final bg = color.withValues(alpha: 0.12);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(

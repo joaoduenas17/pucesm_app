@@ -1,4 +1,4 @@
-package com.example.pucesm_app
+package com.joaoduenas.pucesmapp
 
 import io.flutter.embedding.android.FlutterActivity
 

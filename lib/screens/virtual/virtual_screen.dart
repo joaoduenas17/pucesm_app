@@ -96,10 +96,8 @@ class _VirtualScreenState extends State<VirtualScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                top: BorderSide(color: Colors.black.withOpacity(0.08)),
-              ),
+              color: cs.surface,
+              border: Border(top: BorderSide(color: cs.outlineVariant)),
             ),
             child: Row(
               children: [
@@ -142,7 +140,7 @@ class _VirtualScreenState extends State<VirtualScreen> {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
+                      color: cs.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Row(

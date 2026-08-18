@@ -156,10 +156,7 @@ class _NewsPreview extends StatelessWidget {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
               ),
             ),
-            TextButton(
-              onPressed: onSeeAll,
-              child: const Text('Ver todas'),
-            ),
+            TextButton(onPressed: onSeeAll, child: const Text('Ver todas')),
           ],
         ),
         const SizedBox(height: 10),
@@ -236,12 +233,13 @@ class _NewsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(18),
           boxShadow: const [
             BoxShadow(
@@ -264,7 +262,7 @@ class _NewsCard extends StatelessWidget {
                       imageUrl!,
                       fit: BoxFit.cover,
                       headers: PucemApi.defaultHeaders(isImage: true),
-                      errorBuilder: (_, __, ___) =>
+                      errorBuilder: (_, _, _) =>
                           const Center(child: Icon(Icons.image_not_supported)),
                     ),
                   ),
@@ -283,8 +281,8 @@ class _NewsCard extends StatelessWidget {
                         ),
                         child: Text(
                           date,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: cs.onPrimary,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -313,10 +311,10 @@ class _NewsCard extends StatelessWidget {
                       predescription,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         height: 1.3,
-                        color: Color(0xFF5B6472),
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -350,6 +348,7 @@ class _NewsError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.all(8),
       child: Column(
@@ -360,10 +359,7 @@ class _NewsError extends StatelessWidget {
             style: TextStyle(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
-          Text(
-            message,
-            style: const TextStyle(color: Color(0xFF5B6472)),
-          ),
+          Text(message, style: TextStyle(color: cs.onSurfaceVariant)),
           const SizedBox(height: 10),
           ElevatedButton.icon(
             onPressed: onRetry,
@@ -397,7 +393,8 @@ class _CoursesPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    final cs = Theme.of(context).colorScheme;
+    final primary = cs.primary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -407,14 +404,13 @@ class _CoursesPreview extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
-            TextButton(
-              onPressed: onSeeAll,
-              child: const Text('Ver todas'),
-            ),
+            TextButton(onPressed: onSeeAll, child: const Text('Ver todas')),
           ],
         ),
         const SizedBox(height: 10),
@@ -440,7 +436,7 @@ class _CoursesPreview extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       snap.error.toString(),
-                      style: const TextStyle(color: Color(0xFF5B6472)),
+                      style: TextStyle(color: cs.onSurfaceVariant),
                     ),
                     const SizedBox(height: 10),
                     ElevatedButton.icon(
@@ -508,12 +504,14 @@ class _CourseCard extends StatelessWidget {
         ? PucemApi.courseImageUri(item.imageName).toString()
         : null;
 
+    final cs = Theme.of(context).colorScheme;
+
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(18),
           boxShadow: const [
             BoxShadow(
@@ -534,7 +532,7 @@ class _CourseCard extends StatelessWidget {
                   img,
                   fit: BoxFit.cover,
                   headers: PucemApi.defaultHeaders(isImage: true),
-                  errorBuilder: (_, __, ___) =>
+                  errorBuilder: (_, _, _) =>
                       const Center(child: Icon(Icons.image_not_supported)),
                 ),
               ),
@@ -557,10 +555,10 @@ class _CourseCard extends StatelessWidget {
                       item.predescription,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         height: 1.3,
-                        color: Color(0xFF5B6472),
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -599,8 +597,11 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-    final softBg = Theme.of(context).colorScheme.primary.withOpacity(0.10);
+    final cs = Theme.of(context).colorScheme;
+    final primary = cs.primary;
+    final softBg = Theme.of(
+      context,
+    ).colorScheme.primary.withValues(alpha: 0.10);
 
     return Column(
       children: [
@@ -619,11 +620,7 @@ class _Header extends StatelessWidget {
                   color: softBg,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(
-                  Icons.account_balance,
-                  color: primary,
-                  size: 36,
-                ),
+                child: Icon(Icons.account_balance, color: primary, size: 36),
               );
             },
           ),
@@ -651,7 +648,7 @@ class _PillTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final softBg = const Color(0xFFF1F4FA);
+    final softBg = Theme.of(context).colorScheme.surfaceContainerHighest;
 
     return Container(
       padding: const EdgeInsets.all(6),
@@ -703,10 +700,17 @@ class _PillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    final cs = Theme.of(context).colorScheme;
+    final primary = Theme.of(context).brightness == Brightness.dark
+        ? cs.primaryContainer
+        : cs.primary;
 
     final bg = active ? primary : Colors.transparent;
-    final fg = active ? Colors.white : primary;
+    final fg = active
+        ? (Theme.of(context).brightness == Brightness.dark
+              ? cs.onPrimaryContainer
+              : cs.onPrimary)
+        : primary;
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),
@@ -720,10 +724,7 @@ class _PillButton extends StatelessWidget {
         child: Center(
           child: Text(
             label,
-            style: TextStyle(
-              color: fg,
-              fontWeight: FontWeight.w700,
-            ),
+            style: TextStyle(color: fg, fontWeight: FontWeight.w700),
           ),
         ),
       ),
@@ -744,13 +745,14 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-    final softBg = primary.withOpacity(0.10);
+    final cs = Theme.of(context).colorScheme;
+    final primary = cs.primary;
+    final softBg = primary.withValues(alpha: 0.10);
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(18),
         boxShadow: const [
           BoxShadow(
@@ -787,10 +789,10 @@ class _InfoCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     height: 1.3,
-                    color: Color(0xFF5B6472),
+                    color: cs.onSurfaceVariant,
                   ),
                 ),
               ],

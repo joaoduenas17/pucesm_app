@@ -1,11 +1,11 @@
 {
-    "name": "pucesm_app",
-    "short_name": "pucesm_app",
+    "name": "PUCE Manabí App",
+    "short_name": "PUCE Manabí",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0F3796",
+    "theme_color": "#0F3796",
+    "description": "Aplicación académica para estudiantes de PUCE Manabí.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

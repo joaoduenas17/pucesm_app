@@ -1,0 +1,4 @@
+storePassword=CAMBIAR_ESTA_CLAVE
+keyPassword=CAMBIAR_ESTA_CLAVE
+keyAlias=upload
+storeFile=upload-keystore.jks

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 
-enum StudyLevel { grado, posgrado }
+import '../../app/app_state.dart';
+import '../../data/study_programs.dart';
+import '../../models/user_profile.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -22,43 +24,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   StudyLevel _level = StudyLevel.grado;
   String? _selectedProgram;
 
-  // ✅ Usa tu lista REAL (la que me pasaste)
-  static const List<String> _gradoPrograms = [
-    'Administración de Empresas',
-    'Arquitectura',
-    'Biología Marina',
-    'Derecho',
-    'Diseño Gráfico',
-    'Enfermería',
-    'Fisioterapia',
-    'Ingeniería Civil',
-    'Ingeniería en Alimentos',
-    'Medicina',
-    'Negocios Internacionales',
-    'Nutrición y Dietética',
-    'Psicología Clínica',
-    'Software',
-  ];
-
-  // ✅ Posgrado: déjalo por ahora con ejemplos (luego lo conectamos al backend)
-  static const List<String> _posgradoPrograms = [
-    'Especialización en Salud y Seguridad Ocupacional',
-    'Maestría en Derecho Constitucional',
-    'Maestría en Derecho Penal',
-    'Maestría en Geotecnia Aplicada',
-    'Maestría en Hidráulica mención Gestión de Recursos Hídricos',
-    'Maestría en Ingeniería Civil mención Estructuras Sismorresistentes',
-    'Maestría en Innovación en Educación',
-  ];
-
-  List<String> get _currentPrograms =>
-      _level == StudyLevel.grado ? _gradoPrograms : _posgradoPrograms;
+  List<String> get _currentPrograms => StudyPrograms.forLevel(_level);
 
   @override
   void initState() {
     super.initState();
-    // defaults
-    _selectedProgram = _currentPrograms.isNotEmpty ? _currentPrograms.first : null;
+    _selectedProgram = StudyPrograms.defaultFor(_level);
   }
 
   @override
@@ -91,19 +62,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     setState(() => _saving = true);
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('profile_name', _nameCtrl.text.trim());
-    await prefs.setString('profile_email', _emailCtrl.text.trim());
-    await prefs.setString('profile_level', _level == StudyLevel.grado ? 'grado' : 'posgrado');
-    await prefs.setString('profile_program', _selectedProgram!);
-
-    // ✅ bandera onboarding
-    await prefs.setBool('onboarding_done', true);
+    await context.read<AppState>().completeOnboarding(
+      fullName: _nameCtrl.text,
+      email: _emailCtrl.text,
+      level: _level,
+      program: _selectedProgram!,
+    );
 
     if (!mounted) return;
     setState(() => _saving = false);
 
-    // ✅ manda al home (ajusta ruta a la tuya)
     context.go('/');
   }
 
@@ -124,22 +92,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    cs.primary.withOpacity(0.18),
-                    cs.primary.withOpacity(0.06),
+                    cs.primary.withValues(alpha: 0.18),
+                    cs.primary.withValues(alpha: 0.06),
                   ],
                 ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'Bienvenido a PUCESM App 👋',
+                children: [
+                  const Text(
+                    'Bienvenido a PUCE Manabí App 👋',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(
                     'Antes de empezar, configure estas opciones para personalizar noticias, carreras y recordatorios.',
-                    style: TextStyle(color: Color(0xFF5B6472), height: 1.25),
+                    style: TextStyle(color: cs.onSurfaceVariant, height: 1.25),
                   ),
                 ],
               ),
@@ -208,24 +176,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   const SizedBox(height: 18),
 
                   _BlockTitle(
-                    title: _level == StudyLevel.grado ? 'Carrera (Grado)' : 'Programa (Posgrado)',
+                    title: _level == StudyLevel.grado
+                        ? 'Carrera (Grado)'
+                        : 'Programa (Posgrado)',
                   ),
                   const SizedBox(height: 10),
 
                   DropdownButtonFormField<String>(
-                    value: _selectedProgram,
+                    key: ValueKey(_level),
+                    initialValue: _selectedProgram,
+                    isExpanded: true,
                     items: _currentPrograms
-                        .map((p) => DropdownMenuItem<String>(
-                              value: p,
-                              child: Text(p, overflow: TextOverflow.ellipsis),
-                            ))
+                        .map(
+                          (p) => DropdownMenuItem<String>(
+                            value: p,
+                            child: Text(p, overflow: TextOverflow.ellipsis),
+                          ),
+                        )
                         .toList(),
                     onChanged: (v) => setState(() => _selectedProgram = v),
                     decoration: const InputDecoration(
                       prefixIcon: Icon(Icons.school_outlined),
                       labelText: 'Seleccionar',
                     ),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Selecciona una opción' : null,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Selecciona una opción'
+                        : null,
                   ),
 
                   const SizedBox(height: 18),
@@ -249,7 +225,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
                   Text(
                     'Podrás cambiar esto luego en Perfil → Editar perfil.',
-                    style: TextStyle(color: cs.primary.withOpacity(0.75)),
+                    style: TextStyle(color: cs.primary.withValues(alpha: 0.75)),
                   ),
                 ],
               ),
@@ -276,7 +252,7 @@ class _BlockTitle extends StatelessWidget {
           fontSize: 13,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.4,
-          color: cs.primary.withOpacity(0.9),
+          color: cs.primary.withValues(alpha: 0.9),
         ),
       ),
     );
@@ -306,22 +282,28 @@ class _Pill extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
-            color: active ? cs.primary.withOpacity(0.14) : Colors.white,
+            color: active ? cs.primary.withValues(alpha: 0.14) : cs.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: active ? cs.primary.withOpacity(0.45) : const Color(0x1A000000),
+              color: active
+                  ? cs.primary.withValues(alpha: 0.45)
+                  : cs.outlineVariant,
             ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 18, color: active ? cs.primary : const Color(0xFF5B6472)),
+              Icon(
+                icon,
+                size: 18,
+                color: active ? cs.primary : cs.onSurfaceVariant,
+              ),
               const SizedBox(width: 8),
               Text(
                 label,
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
-                  color: active ? cs.primary : const Color(0xFF5B6472),
+                  color: active ? cs.primary : cs.onSurfaceVariant,
                 ),
               ),
             ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../app/preference_keys.dart';
 import '../../models/news_item.dart';
 import '../../services/pucem_api.dart';
 import '../../services/notification_service.dart';
@@ -54,11 +55,10 @@ class _NewsListScreenState extends State<NewsListScreen> {
 
     final prefs = await SharedPreferences.getInstance();
 
-    // ✅ Switch de noticias (nuevo)
-    // (si aún no existe, por defecto lo dejamos en true)
-    final newsOn = prefs.getBool('notif_news_enabled') ?? true;
+    final masterOn = prefs.getBool(PreferenceKeys.masterNotifications) ?? false;
+    final newsOn = prefs.getBool(PreferenceKeys.newsNotifications) ?? true;
 
-    if (!newsOn) return;
+    if (!masterOn || !newsOn) return;
 
     // Tomamos la primera noticia (normalmente viene ordenada por más reciente)
     final latest = items.first;
@@ -66,26 +66,31 @@ class _NewsListScreenState extends State<NewsListScreen> {
     // Fingerprint estable (si el API no trae ID)
     final fingerprint = _newsFingerprint(latest);
 
-    final lastNotified = prefs.getString('news_last_notified') ?? '';
+    final lastNotified = prefs.getString(PreferenceKeys.newsLastNotified) ?? '';
     if (fingerprint == lastNotified) return; // anti-spam
 
-    // Guardamos ANTES de notificar (para evitar duplicados si algo crashea)
-    await prefs.setString('news_last_notified', fingerprint);
+    // La primera carga fija una línea base; no presenta contenido ya publicado
+    // como si fuera una noticia nueva.
+    await prefs.setString(PreferenceKeys.newsLastNotified, fingerprint);
+    if (lastNotified.isEmpty) return;
 
-    // Disparamos notificación (programada a 2s, estilo "instantánea")
-    final id = fingerprint.hashCode & 0x7FFFFFFF;
+    final id = latest.id & 0x7FFFFFFF;
 
-    await NotificationService.showInstant(
-      id: id,
-      title: 'Nueva noticia PUCE Manabí',
-      body: latest.title,
-    );
+    try {
+      await NotificationService.showInstant(
+        id: id,
+        title: 'Nueva noticia PUCE Manabí',
+        body: latest.title,
+      );
+    } catch (error, stackTrace) {
+      // Un fallo de notificación no debe impedir consultar las noticias.
+      debugPrint('No se pudo mostrar la notificación: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   String _newsFingerprint(NewsItem n) {
-    // Si tu NewsItem tiene un id real (ej: n.id), cámbialo por eso y ya.
-    // Por ahora: title + dateLabel + imageName suelen cambiar si es otra noticia.
-    return '${n.title}|${n.dateLabel}|${n.imageName}';
+    return '${n.id}|${n.dateLabel}|${n.title}';
   }
 
   @override
@@ -115,7 +120,7 @@ class _NewsListScreenState extends State<NewsListScreen> {
             child: ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
               itemBuilder: (context, i) {
                 final n = items[i];
                 final img = n.imageName.isNotEmpty
@@ -155,14 +160,15 @@ class _NewsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    final cs = Theme.of(context).colorScheme;
+    final primary = cs.primary;
 
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(18),
           boxShadow: const [
             BoxShadow(
@@ -194,9 +200,8 @@ class _NewsCard extends StatelessWidget {
                           ),
                         );
                       },
-                      errorBuilder: (_, __, ___) => const Center(
-                        child: Icon(Icons.image_not_supported),
-                      ),
+                      errorBuilder: (_, _, _) =>
+                          const Center(child: Icon(Icons.image_not_supported)),
                     ),
                   ),
                   if (date.isNotEmpty)
@@ -214,8 +219,8 @@ class _NewsCard extends StatelessWidget {
                         ),
                         child: Text(
                           date,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: cs.onPrimary,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -244,10 +249,10 @@ class _NewsCard extends StatelessWidget {
                       predescription,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         height: 1.3,
-                        color: Color(0xFF5B6472),
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -269,6 +274,7 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -282,7 +288,7 @@ class _ErrorState extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF5B6472)),
+              style: TextStyle(color: cs.onSurfaceVariant),
             ),
             const SizedBox(height: 14),
             ElevatedButton.icon(

@@ -10,6 +10,7 @@ class BottomNav extends StatelessWidget {
     if (location.startsWith('/calendar')) return 1;
     if (location.startsWith('/virtual')) return 2;
     if (location.startsWith('/profile')) return 3;
+    if (location.startsWith('/help')) return 3;
     return 0;
   }
 
@@ -41,22 +42,13 @@ class BottomNav extends StatelessWidget {
           }
         },
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Inicio',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_month),
             label: 'Calendario',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.school),
-            label: 'Entorno',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Perfil',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.school), label: 'Entorno'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
         ],
       ),
     );
