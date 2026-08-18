@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../app/app_state.dart';
 import '../../data/study_programs.dart';
 import '../../models/user_profile.dart';
+import '../../widgets/study_level_selector.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -55,7 +56,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     if (_selectedProgram == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona tu carrera/programa.')),
+        const SnackBar(content: Text('Selecciona tu carrera o programa.')),
       );
       return;
     }
@@ -84,6 +85,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: [
+            const _OnboardingLogo(),
+            const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -155,30 +158,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   _BlockTitle(title: 'Nivel'),
                   const SizedBox(height: 10),
 
-                  Row(
-                    children: [
-                      _Pill(
-                        label: 'Grado',
-                        icon: Icons.school_outlined,
-                        active: _level == StudyLevel.grado,
-                        onTap: () => _onLevelChanged(StudyLevel.grado),
-                      ),
-                      const SizedBox(width: 10),
-                      _Pill(
-                        label: 'Posgrado',
-                        icon: Icons.workspace_premium_outlined,
-                        active: _level == StudyLevel.posgrado,
-                        onTap: () => _onLevelChanged(StudyLevel.posgrado),
-                      ),
-                    ],
-                  ),
+                  StudyLevelSelector(value: _level, onChanged: _onLevelChanged),
 
                   const SizedBox(height: 18),
 
                   _BlockTitle(
-                    title: _level == StudyLevel.grado
-                        ? 'Carrera (Grado)'
-                        : 'Programa (Posgrado)',
+                    title: switch (_level) {
+                      StudyLevel.grado => 'Carrera (Grado)',
+                      StudyLevel.posgrado => 'Programa (Posgrado)',
+                      StudyLevel.pucetec => 'Carrera tecnológica (PUCE TEC)',
+                    },
                   ),
                   const SizedBox(height: 10),
 
@@ -237,6 +226,40 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
+class _OnboardingLogo extends StatelessWidget {
+  const _OnboardingLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Center(
+      child: Container(
+        width: 124,
+        height: 124,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: colors.outlineVariant),
+          boxShadow: [
+            BoxShadow(
+              color: colors.shadow.withValues(alpha: 0.12),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Image.asset(
+          'assets/icon/logo_puce.png',
+          fit: BoxFit.contain,
+          semanticLabel: 'Logo de PUCE Manabí',
+        ),
+      ),
+    );
+  }
+}
+
 class _BlockTitle extends StatelessWidget {
   final String title;
   const _BlockTitle({required this.title});
@@ -253,61 +276,6 @@ class _BlockTitle extends StatelessWidget {
           fontWeight: FontWeight.w800,
           letterSpacing: 0.4,
           color: cs.primary.withValues(alpha: 0.9),
-        ),
-      ),
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool active;
-  final VoidCallback onTap;
-
-  const _Pill({
-    required this.label,
-    required this.icon,
-    required this.active,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          decoration: BoxDecoration(
-            color: active ? cs.primary.withValues(alpha: 0.14) : cs.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: active
-                  ? cs.primary.withValues(alpha: 0.45)
-                  : cs.outlineVariant,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: active ? cs.primary : cs.onSurfaceVariant,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: active ? cs.primary : cs.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

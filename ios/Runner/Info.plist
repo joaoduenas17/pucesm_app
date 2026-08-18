@@ -26,6 +26,10 @@
 		<true/>
 		<key>NSCameraUsageDescription</key>
 		<string>La cámara se usa únicamente para elegir una foto de perfil.</string>
+		<key>NSCalendarsUsageDescription</key>
+		<string>El calendario se usa para guardar los eventos académicos que selecciones.</string>
+		<key>NSContactsUsageDescription</key>
+		<string>Este permiso permite que el selector de calendario funcione correctamente al guardar un evento.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>La fototeca se usa únicamente para elegir una foto de perfil.</string>
 		<key>UILaunchStoryboardName</key>

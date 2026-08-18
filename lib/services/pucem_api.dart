@@ -19,6 +19,10 @@ class PucemApi {
   static const _base = 'https://api.pucesm.edu.ec';
   static const _requestTimeout = Duration(seconds: 15);
 
+  static const gradoCourseType = 1;
+  static const posgradoCourseType = 2;
+  static const pucetecCourseType = 7;
+
   // ======================
   // NEWS (CONTENT)
   // ======================
@@ -38,7 +42,7 @@ class PucemApi {
   static Uri fileUri(String name) => contentFileUri(name);
 
   // ======================
-  // COURSES (GRADO/POSGRADO)
+  // COURSES (GRADO/POSGRADO/PUCE TEC)
   // ======================
   static Uri coursesListUri(int type) => Uri.parse(
     '$_base/courses/list/',
@@ -100,7 +104,7 @@ class PucemApi {
 
   // ======================
   // FETCH COURSES
-  // type: 1=Grado | 2=Posgrado
+  // type: 1=Grado | 2=Posgrado | 7=PUCE TEC
   // ======================
   static Future<List<CourseItem>> fetchCourses(int type) async {
     final decoded = await _fetchList(coursesListUri(type));

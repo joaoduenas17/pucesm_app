@@ -28,8 +28,21 @@ abstract final class StudyPrograms {
     'Maestría en Innovación en Educación',
   ];
 
+  static const pucetec = <String>[
+    'Tecnología Superior en Acuicultura',
+    'Tecnología Superior en Marketing Digital',
+    'Tecnología Superior Universitaria en Gastronomía',
+  ];
+
   static List<String> forLevel(StudyLevel level) {
-    return level == StudyLevel.posgrado ? posgrado : grado;
+    switch (level) {
+      case StudyLevel.grado:
+        return grado;
+      case StudyLevel.posgrado:
+        return posgrado;
+      case StudyLevel.pucetec:
+        return pucetec;
+    }
   }
 
   static String defaultFor(StudyLevel level) => forLevel(level).first;

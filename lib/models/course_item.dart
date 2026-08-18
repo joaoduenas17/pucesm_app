@@ -45,7 +45,7 @@ class CourseItem {
   /// Datos varios
   final String video;
   final int views;
-  final int idType; // 1=Grado, 2=Posgrado
+  final int idType; // 1=Grado, 2=Posgrado, 7=PUCE TEC
   final String typeName; // "typename"
   final String duration;
   final String modality;

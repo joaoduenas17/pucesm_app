@@ -6,7 +6,7 @@ import '../../models/course_item.dart';
 import '../../services/pucem_api.dart';
 import '../../utils/metric_logger.dart';
 
-enum HomeSection { noticias, grado, posgrado }
+enum HomeSection { noticias, grado, posgrado, pucetec }
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,9 +20,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   late Future<List<NewsItem>> _newsFuture;
 
-  // ✅ NUEVO: previews de Grado / Posgrado
+  // Los tres futuros originales se mantienen al inicio para conservar las
+  // métricas históricas de la tesis. PUCE TEC se carga solo al elegir su pestaña.
   late Future<List<CourseItem>> _gradoFuture;
   late Future<List<CourseItem>> _posgradoFuture;
+  Future<List<CourseItem>>? _pucetecFuture;
 
   @override
   void initState() {
@@ -33,11 +35,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     _gradoFuture = MetricLogger.medir(
       'carga_grado_inicio',
-      () => PucemApi.fetchCourses(1),
+      () => PucemApi.fetchCourses(PucemApi.gradoCourseType),
     );
     _posgradoFuture = MetricLogger.medir(
       'carga_posgrado_inicio',
-      () => PucemApi.fetchCourses(2),
+      () => PucemApi.fetchCourses(PucemApi.posgradoCourseType),
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -54,7 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _refreshGrado() async {
     final future = MetricLogger.medir(
       'recarga_grado',
-      () => PucemApi.fetchCourses(1),
+      () => PucemApi.fetchCourses(PucemApi.gradoCourseType),
     );
     setState(() => _gradoFuture = future);
     await future;
@@ -63,9 +65,24 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _refreshPosgrado() async {
     final future = MetricLogger.medir(
       'recarga_posgrado',
-      () => PucemApi.fetchCourses(2),
+      () => PucemApi.fetchCourses(PucemApi.posgradoCourseType),
     );
     setState(() => _posgradoFuture = future);
+    await future;
+  }
+
+  void _selectSection(HomeSection value) {
+    setState(() {
+      selected = value;
+      if (value == HomeSection.pucetec) {
+        _pucetecFuture ??= PucemApi.fetchCourses(PucemApi.pucetecCourseType);
+      }
+    });
+  }
+
+  Future<void> _refreshPucetec() async {
+    final future = PucemApi.fetchCourses(PucemApi.pucetecCourseType);
+    setState(() => _pucetecFuture = future);
     await future;
   }
 
@@ -78,10 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const _Header(),
           const SizedBox(height: 18),
 
-          _PillTabs(
-            selected: selected,
-            onChanged: (v) => setState(() => selected = v),
-          ),
+          _PillTabs(selected: selected, onChanged: _selectSection),
 
           const SizedBox(height: 14),
 
@@ -115,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onCalendar: () => context.go('/calendar'),
               onLogin: () => context.go('/virtual'),
             ),
-          ] else ...[
+          ] else if (selected == HomeSection.posgrado) ...[
             const _InfoCard(
               title: 'Posgrado',
               subtitle:
@@ -130,6 +144,28 @@ class _HomeScreenState extends State<HomeScreen> {
               future: _posgradoFuture,
               onRefresh: _refreshPosgrado,
               onSeeAll: () => context.go('/posgrado'),
+              onOpenDetail: (c) => context.push('/courses/detail', extra: c),
+            ),
+
+            const SizedBox(height: 12),
+            _QuickButtonsRow(
+              onCalendar: () => context.go('/calendar'),
+              onLogin: () => context.go('/virtual'),
+            ),
+          ] else ...[
+            const _InfoCard(
+              title: 'PUCE TEC',
+              subtitle:
+                  'Explora las carreras tecnológicas de PUCE Manabí, orientadas a una formación práctica y especializada.',
+              icon: Icons.precision_manufacturing_outlined,
+            ),
+            const SizedBox(height: 12),
+
+            _CoursesPreview(
+              title: 'PUCE TEC',
+              future: _pucetecFuture!,
+              onRefresh: _refreshPucetec,
+              onSeeAll: () => context.go('/pucetec'),
               onOpenDetail: (c) => context.push('/courses/detail', extra: c),
             ),
 
@@ -679,32 +715,34 @@ class _PillTabs extends StatelessWidget {
         color: softBg,
         borderRadius: BorderRadius.circular(18),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _PillButton(
-              label: 'Noticias',
-              active: selected == HomeSection.noticias,
-              onTap: () => onChanged(HomeSection.noticias),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _PillButton(
-              label: 'Grado',
-              active: selected == HomeSection.grado,
-              onTap: () => onChanged(HomeSection.grado),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _PillButton(
-              label: 'Posgrado',
-              active: selected == HomeSection.posgrado,
-              onTap: () => onChanged(HomeSection.posgrado),
-            ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const spacing = 8.0;
+          final columns = constraints.maxWidth < 600 ? 2 : 4;
+          final width =
+              (constraints.maxWidth - (spacing * (columns - 1))) / columns;
+          final tabs = <(HomeSection, String)>[
+            (HomeSection.noticias, 'Noticias'),
+            (HomeSection.grado, 'Grado'),
+            (HomeSection.posgrado, 'Posgrado'),
+            (HomeSection.pucetec, 'PUCE TEC'),
+          ];
+
+          return Wrap(
+            spacing: spacing,
+            runSpacing: spacing,
+            children: tabs.map((tab) {
+              return SizedBox(
+                width: width,
+                child: _PillButton(
+                  label: tab.$2,
+                  active: selected == tab.$1,
+                  onTap: () => onChanged(tab.$1),
+                ),
+              );
+            }).toList(),
+          );
+        },
       ),
     );
   }

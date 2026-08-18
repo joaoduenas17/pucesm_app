@@ -26,7 +26,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
   bool _calendarNotifs = true;
   bool _calendarOnlyMyLevel = true;
 
-  // Leído desde perfil: 'grado' | 'posgrado'
+  // Leído desde perfil: 'grado' | 'posgrado' | 'pucetec'
   String _profileLevel = 'grado';
 
   @override
@@ -148,7 +148,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
     ).showSnackBar(SnackBar(content: Text('Notificación de prueba enviada.')));
   }
 
-  String get _levelLabel => _profileLevel == 'posgrado' ? 'Posgrado' : 'Grado';
+  String get _levelLabel => StudyLevelX.fromStorage(_profileLevel).label;
 
   @override
   Widget build(BuildContext context) {
