@@ -1,12 +1,14 @@
 # PUCE Manabí App
 
+[![Flutter CI](https://github.com/joaoduenas17/pucesm_app/actions/workflows/flutter-ci.yml/badge.svg)](https://github.com/joaoduenas17/pucesm_app/actions/workflows/flutter-ci.yml)
+
 Aplicación académica desarrollada en Flutter para centralizar información útil de PUCE Manabí. Es un proyecto académico independiente y no una aplicación oficial de la Universidad.
 
 ## Funcionalidades
 
 - Noticias institucionales obtenidas desde la API pública, con actualización manual y detalle en HTML.
-- Oferta vigente de carreras de grado y programas de posgrado.
-- Calendario académico 2026 con búsqueda, filtros, historial, exportación al calendario del dispositivo y recordatorios locales.
+- Oferta vigente de carreras de grado, programas de posgrado y PUCE TEC.
+- Calendario académico 2026 con vistas de agenda y mes, eventos personales, búsqueda, filtros, exportación al calendario del dispositivo y recordatorios locales.
 - Acceso integrado al Entorno Virtual de Aprendizaje (EVA).
 - Perfil local con nivel, programa y foto.
 - Tema claro/oscuro, tamaño de texto y reducción de animaciones.
@@ -20,7 +22,7 @@ El desarrollo y las pruebas se concentran en Android. La configuración básica 
 
 ## Requisitos
 
-- Flutter compatible con Dart `^3.10.4`.
+- Flutter `3.47.0` estable, compatible con Dart `^3.10.4`.
 - Android Studio o un dispositivo Android configurado para depuración.
 - Conexión a Internet para noticias, programas y EVA.
 
@@ -39,7 +41,12 @@ Comprobaciones recomendadas antes de integrar cambios:
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test
+flutter build apk --debug
 ```
+
+## Integración continua
+
+GitHub Actions ejecuta automáticamente esas cuatro comprobaciones en cada pull request dirigido a `main` y después de cada actualización de la rama principal. Flutter y Java están fijados a versiones conocidas para que las validaciones sean reproducibles.
 
 ## Estructura
 
