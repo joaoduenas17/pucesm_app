@@ -19,6 +19,7 @@ abstract final class PreferenceKeys {
   static const calendarOnlyMyLevel = 'notif_calendar_only_my_level';
   static const calendarIncludeInstitutional =
       'notif_calendar_include_institutional';
+  static const personalCalendarEvents = 'calendar_personal_events_v1';
 
   // Claves usadas por versiones anteriores. Solo se leen para migrar datos.
   static const legacyDarkMode = 'dark_mode';

@@ -95,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const _Header(),
           const SizedBox(height: 18),
 
-          _PillTabs(selected: selected, onChanged: _selectSection),
+          HomeSectionTabs(selected: selected, onChanged: _selectSection),
 
           const SizedBox(height: 14),
 
@@ -699,11 +699,15 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _PillTabs extends StatelessWidget {
+class HomeSectionTabs extends StatelessWidget {
   final HomeSection selected;
   final ValueChanged<HomeSection> onChanged;
 
-  const _PillTabs({required this.selected, required this.onChanged});
+  const HomeSectionTabs({
+    super.key,
+    required this.selected,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -718,29 +722,42 @@ class _PillTabs extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           const spacing = 8.0;
-          final columns = constraints.maxWidth < 600 ? 2 : 4;
-          final width =
-              (constraints.maxWidth - (spacing * (columns - 1))) / columns;
           final tabs = <(HomeSection, String)>[
             (HomeSection.noticias, 'Noticias'),
             (HomeSection.grado, 'Grado'),
             (HomeSection.posgrado, 'Posgrado'),
             (HomeSection.pucetec, 'PUCE TEC'),
           ];
+          const compactWidth = 108.0;
+          final requiredWidth =
+              (compactWidth * tabs.length) + (spacing * (tabs.length - 1));
+          final buttonWidth = constraints.maxWidth >= requiredWidth
+              ? (constraints.maxWidth - (spacing * (tabs.length - 1))) /
+                    tabs.length
+              : compactWidth;
 
-          return Wrap(
-            spacing: spacing,
-            runSpacing: spacing,
-            children: tabs.map((tab) {
-              return SizedBox(
-                width: width,
-                child: _PillButton(
-                  label: tab.$2,
-                  active: selected == tab.$1,
-                  onTap: () => onChanged(tab.$1),
-                ),
-              );
-            }).toList(),
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: tabs.indexed.map((entry) {
+                final index = entry.$1;
+                final tab = entry.$2;
+                return Padding(
+                  padding: EdgeInsets.only(
+                    right: index == tabs.length - 1 ? 0 : spacing,
+                  ),
+                  child: SizedBox(
+                    width: buttonWidth,
+                    child: _PillButton(
+                      label: tab.$2,
+                      active: selected == tab.$1,
+                      onTap: () => onChanged(tab.$1),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
           );
         },
       ),
