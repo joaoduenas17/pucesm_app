@@ -90,14 +90,30 @@ class MetricLogger {
     Duration duracion, {
     required String estado,
   }) {
-    final milisegundos = duracion.inMicroseconds / 1000;
-    debugPrint(
-      '[TESIS_METRICA] '
-      'dispositivo=$dispositivo '
-      'repeticion=$repeticion '
-      'metrica=$nombre '
-      'duracion_ms=${milisegundos.toStringAsFixed(3)} '
-      'estado=$estado',
-    );
+    debugPrint(formatearRegistro(nombre, duracion, estado: estado));
+  }
+
+  /// Mantiene el formato empleado en las evidencias originales de la tesis.
+  ///
+  /// Las etiquetas opcionales se agregan al final para no alterar el prefijo
+  /// histórico: `[TESIS_METRICA] <nombre>: <milisegundos> ms`.
+  @visibleForTesting
+  static String formatearRegistro(
+    String nombre,
+    Duration duracion, {
+    String estado = 'ok',
+    String etiquetaDispositivo = dispositivo,
+    String etiquetaRepeticion = repeticion,
+  }) {
+    final metadatos = <String>[
+      if (etiquetaDispositivo != 'sin_etiqueta')
+        'dispositivo=$etiquetaDispositivo',
+      if (etiquetaRepeticion != 'sin_etiqueta')
+        'repeticion=$etiquetaRepeticion',
+      if (estado != 'ok') 'estado=$estado',
+    ];
+
+    final registro = '[TESIS_METRICA] $nombre: ${duracion.inMilliseconds} ms';
+    return metadatos.isEmpty ? registro : '$registro | ${metadatos.join(' ')}';
   }
 }

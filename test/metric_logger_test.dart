@@ -3,6 +3,32 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pucesm_app/utils/metric_logger.dart';
 
 void main() {
+  test('conserva la nomenclatura y el formato histórico de la tesis', () {
+    final registro = MetricLogger.formatearRegistro(
+      'inicio_app',
+      const Duration(milliseconds: 2780, microseconds: 900),
+      etiquetaDispositivo: 'sin_etiqueta',
+      etiquetaRepeticion: 'sin_etiqueta',
+    );
+
+    expect(registro, '[TESIS_METRICA] inicio_app: 2780 ms');
+  });
+
+  test('agrega las etiquetas nuevas sin modificar el formato histórico', () {
+    final registro = MetricLogger.formatearRegistro(
+      'carga_noticias_inicio',
+      const Duration(milliseconds: 428),
+      etiquetaDispositivo: 'pixel8_android14',
+      etiquetaRepeticion: '1',
+    );
+
+    expect(
+      registro,
+      '[TESIS_METRICA] carga_noticias_inicio: 428 ms | '
+      'dispositivo=pixel8_android14 repeticion=1',
+    );
+  });
+
   test('medir conserva el resultado de una operación asíncrona', () async {
     final resultado = await MetricLogger.medir('prueba_async', () async => 42);
 

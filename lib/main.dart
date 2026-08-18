@@ -12,7 +12,6 @@ import 'services/notification_service.dart';
 import 'utils/metric_logger.dart';
 
 Future<void> main() async {
-  MetricLogger.marcarInicioApp();
   WidgetsFlutterBinding.ensureInitialized();
 
   // ✅ Timezones (necesario para programar notificaciones con hora exacta)
@@ -33,10 +32,8 @@ Future<void> main() async {
   final appState = AppState();
   await appState.load();
 
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    MetricLogger.registrarDesdeInicio('inicio_dart_primer_frame');
-  });
-
+  // Conserva el mismo punto de inicio usado en las pruebas documentadas.
+  MetricLogger.marcarInicioApp();
   runApp(
     ChangeNotifierProvider<AppState>.value(
       value: appState,

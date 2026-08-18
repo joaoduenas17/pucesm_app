@@ -8,8 +8,7 @@ identificadas con `[TESIS_METRICA]` en el registro de Flutter.
 
 | Métrica | Alcance |
 | --- | --- |
-| `inicio_dart_primer_frame` | Desde la entrada a `main()` hasta el primer frame de Flutter. Incluye las inicializaciones hechas en Dart, pero no el tiempo nativo anterior al arranque del motor. |
-| `inicio_dart_home` | Desde la entrada a `main()` hasta el primer frame de Inicio. Incluye el splash intencional de 1,3 segundos. Solo es comparable cuando el onboarding ya está completado. |
+| `inicio_app` | Desde el instante inmediatamente anterior a `runApp()` hasta el primer frame de Inicio. Conserva exactamente el nombre y el límite de medición empleados en la tesis. Incluye el splash intencional de 1,3 segundos y solo es comparable cuando el onboarding ya está completado. No representa el arranque nativo completo del proceso. |
 | `carga_noticias_inicio` | Solicitud, respuesta y parseo de las noticias mostradas al entrar a Inicio. |
 | `carga_grado_inicio` | Solicitud, respuesta y parseo de los programas de grado mostrados al entrar a Inicio. |
 | `carga_posgrado_inicio` | Solicitud, respuesta y parseo de los programas de posgrado mostrados al entrar a Inicio. |
@@ -60,7 +59,17 @@ flutter logs -d <device-id> |
 Ejemplo de salida:
 
 ```text
-[TESIS_METRICA] dispositivo=pixel8_android14 repeticion=1 metrica=carga_noticias_inicio duracion_ms=428.317 estado=ok
+[TESIS_METRICA] carga_noticias_inicio: 428 ms | dispositivo=pixel8_android14 repeticion=1
+```
+
+El segmento anterior al carácter `|` conserva el formato de las capturas y los
+datos originales de la tesis. Las etiquetas posteriores son opcionales: ayudan
+a identificar el dispositivo y la repetición, pero no cambian el nombre ni el
+valor de la métrica. Si no se proporcionan `THESIS_DEVICE` y `THESIS_RUN`, la
+salida mantiene exactamente el formato histórico, por ejemplo:
+
+```text
+[TESIS_METRICA] inicio_app: 2780 ms
 ```
 
 Para la siguiente repetición, cerrar completamente la aplicación, cambiar

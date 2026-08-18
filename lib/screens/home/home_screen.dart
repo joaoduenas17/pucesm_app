@@ -41,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      MetricLogger.registrarDesdeInicio('inicio_dart_home');
+      MetricLogger.registrarDesdeInicio('inicio_app');
     });
   }
 
