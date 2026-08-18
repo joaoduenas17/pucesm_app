@@ -9,6 +9,7 @@ import 'app/app_router.dart';
 import 'app/app_state.dart';
 import 'theme/app_theme.dart';
 import 'services/notification_service.dart';
+import 'utils/metric_logger.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,6 +32,8 @@ Future<void> main() async {
   final appState = AppState();
   await appState.load();
 
+  // Conserva el mismo punto de inicio usado en las pruebas documentadas.
+  MetricLogger.marcarInicioApp();
   runApp(
     ChangeNotifierProvider<AppState>.value(
       value: appState,

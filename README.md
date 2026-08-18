@@ -71,6 +71,12 @@ El keystore y `key.properties` están excluidos de Git y nunca deben publicarse.
 - Los permisos de notificación se solicitan al activar la función o al ejecutar una prueba.
 - Las fechas académicas pueden cambiar; siempre prevalecen las publicaciones oficiales de la Universidad.
 
+## Pruebas técnicas de tesis
+
+La instrumentación de rendimiento se mantiene desactivada en la aplicación
+normal. El protocolo reproducible, las métricas y los comandos para habilitarla
+están documentados en [docs/pruebas_tecnicas_tesis.md](docs/pruebas_tecnicas_tesis.md).
+
 ## Autor
 
 Joao Dueñas — proyecto académico de Ingeniería de Software, Pontificia Universidad Católica del Ecuador, Sede Manabí.
